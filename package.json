@@ -1,0 +1,7 @@
+{
+  "name": "drive-sim",
+  "private": true,
+  "scripts": {
+    "start": "npm start --prefix Backend"
+  }
+}
