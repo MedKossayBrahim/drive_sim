@@ -1,0 +1,158 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &1
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1724c3c8b7c3e4e4e8e4e4e4e4e4e4e4, type: 3}
+  m_Name: SubmarineVolumeProfile
+  m_EditorClassIdentifier: 
+  components:
+  - {fileID: 2}
+  - {fileID: 3}
+  - {fileID: 4}
+  - {fileID: 5}
+  - {fileID: 6}
+  - {fileID: 7}
+--- !u!114 &2
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d7593b3a9277474ea5d3c4e4e4e4e4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  weight: 1
+  mode: 0
+  color: {r: 0.02, g: 0.1, b: 0.25, a: 1}
+  center: {x: 0, y: 0, z: 0}
+  distance: 50
+  baseHeight: 0
+  maximumHeight: 50
+  albedo: {r: 1, g: 1, b: 1, a: 1}
+  meanFreePath: 20
+  enableVolumetricFog: 1
+  anisotropy: 0.5
+--- !u!114 &3
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81180773991d8724ab7f2d216912b564, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  intensity: 1.5
+  threshold: 0.8
+  scatter: 0.7
+  clamp: 65472
+  tint: {r: 0.3, g: 0.8, b: 1, a: 1}
+  dirtTexture: {fileID: 0}
+  dirtIntensity: 0
+--- !u!114 &4
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66f335fb7f7f94c458e3898909613b43, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  mode: 0
+  color: {r: 0.02, g: 0.08, b: 0.2, a: 1}
+  center: {x: 0, y: 0, z: 0}
+  distance: 100
+  baseHeight: 0
+  maximumHeight: 50
+  albedo: {r: 1, g: 1, b: 1, a: 1}
+  meanFreePath: 30
+  enableVolumetricFog: 1
+  anisotropy: 0.6
+--- !u!114 &5
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29b0f69e40c92a24099e4c7c6e8e4e4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  postExposure: 0.5
+  contrast: 10
+  colorFilter: {r: 0.8, g: 0.95, b: 1.1, a: 1}
+  hueShift: 0
+  saturation: -10
+--- !u!114 &6
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 899c54efce35a4d4ca1c4e3a4e4e4e4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  intensity: 0.3
+  smoothness: 0.5
+  color: {r: 0, g: 0, b: 0, a: 1}
+--- !u!114 &7
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5485954d14dfb4f4ca6d6c4e4e4e4e4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  intensity: 0.15
+  response: 0.8
+--- !u!114 &8
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97c23e3b12dc58449a1b49a4e4e4e4e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 1
+  quality: 1
+  resolution: 1
+  customBlur: 0
+  fadeInStart: 0
+  fadeOutEnd: 1000
+  fogDistance: 50
+  fogBaseHeight: 0
+  fogHeightAttenuation: 0.5
