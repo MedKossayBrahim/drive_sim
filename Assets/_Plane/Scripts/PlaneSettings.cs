@@ -65,6 +65,18 @@ namespace Project.Plane
         [SerializeField, Range(0f, 3f), Tooltip("Gain du virage g*tan(roulis)/vitesse. 1 coordonne naturellement le virage sans entrée de lacet.")]
         private float bankToTurn = 1f;
         [SerializeField, Min(0f)] private float coordinatedTurnResponse = 3f;
+        [Header("Joystick tactile — maintien d'assiette et demi-tours")]
+        [SerializeField, Range(10f, 75f)] private float touchBankAngle = 65f;
+        [SerializeField, Range(5f, 50f)] private float touchPitchAngle = 30f;
+        [SerializeField, Min(0f)] private float touchRollResponse = 16f;
+        [SerializeField, Min(0f)] private float touchPitchResponse = 10f;
+        [SerializeField, Min(0f)] private float touchAngularDamping = 4.5f;
+        [SerializeField, Range(.5f, 2.5f), Tooltip("Amplifie le virage coordonné en Touch uniquement ; aucune touche de lacet nécessaire.")]
+        private float touchTurnMultiplier = 1.6f;
+        [SerializeField, Min(30f), Tooltip("Régulation progressive de la poussée dans les derniers 10 % de cette vitesse, en Touch seulement.")]
+        private float touchCruiseSpeed = 80f;
+        [SerializeField, Min(.1f), Tooltip("Réactivité de la trajectoire verticale à l'assiette, moteur actif et hors décrochage. Ne crée pas de portance supplémentaire.")]
+        private float touchFlightPathResponse = 1.8f;
         [Header("Assistance au retour à plat")]
         [SerializeField, Min(0f), Tooltip("Gain de maintien d'assiette Tilt quand le téléphone revient au neutre.")]
         private float easyAssistance = 1.2f;
@@ -85,6 +97,14 @@ namespace Project.Plane
         public float TiltAngularDamping => tiltAngularDamping;
         public float BankToTurn => bankToTurn;
         public float CoordinatedTurnResponse => coordinatedTurnResponse;
+        public float TouchBankAngle => touchBankAngle;
+        public float TouchPitchAngle => touchPitchAngle;
+        public float TouchRollResponse => touchRollResponse;
+        public float TouchPitchResponse => touchPitchResponse;
+        public float TouchAngularDamping => touchAngularDamping;
+        public float TouchTurnMultiplier => touchTurnMultiplier;
+        public float TouchCruiseSpeed => Mathf.Max(30f, touchCruiseSpeed);
+        public float TouchFlightPathResponse => Mathf.Max(.1f, touchFlightPathResponse);
         public float EasyAssistance => easyAssistance;
         public float ProAssistance => proAssistance;
         public float FallingNoseDownAcceleration => fallingNoseDownAcceleration;

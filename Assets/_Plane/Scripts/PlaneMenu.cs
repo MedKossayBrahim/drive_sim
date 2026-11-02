@@ -19,6 +19,9 @@ namespace Project.Plane
         [SerializeField] private Button touchButton = null, tiltButton = null, easyButton = null, proButton = null, fps30Button = null, fps60Button = null, invertButton = null;
         [SerializeField] private GameObject calibrateButton = null, keyboardButton = null;
         [SerializeField] private TMP_Text invertLabel = null;
+        [SerializeField] private CrashHaptics haptics = null;
+        [SerializeField] private Button hapticsButton = null;
+        [SerializeField] private TMP_Text hapticsLabel = null;
         [SerializeField] private Color accent = new Color(46f/255f,196f/255f,182f/255f);
         private readonly Color idle = new Color(.075f,.12f,.16f,1f);
         private bool wasPaused, restarting, preferencesLoaded, capturedCursor;
@@ -71,6 +74,9 @@ namespace Project.Plane
             Highlight(easyButton,input.Controller.Assistance==FlightAssistance.Easy);Highlight(proButton,input.Controller.Assistance==FlightAssistance.Pro);
             Highlight(fps30Button,frameRate==30);Highlight(fps60Button,frameRate==60);Highlight(invertButton,input.PitchInverted);
             if(invertLabel!=null)invertLabel.text=input.PitchInverted?"ON":"OFF";
+            bool vibrates = haptics != null ? haptics.HapticsEnabled : PlayerPrefs.GetInt(CrashHaptics.PreferenceKey, 1) != 0;
+            Highlight(hapticsButton, vibrates);
+            if(hapticsLabel!=null)hapticsLabel.text=vibrates?"ON":"OFF";
             if(calibrateButton!=null)calibrateButton.SetActive(input.Mode==ControlMode.Tilt);
             if(keyboardButton!=null)keyboardButton.SetActive(Application.isEditor||!Application.isMobilePlatform);
         }
@@ -93,6 +99,13 @@ namespace Project.Plane
         public void ProAssistance()=>SetAssistance(FlightAssistance.Pro);
         private void SetAssistance(FlightAssistance value){if(input==null)return;input.Controller.SetAssistance(value);SavePreferences();RefreshChoices();}
         public void TogglePitchInversion(){if(input==null)return;input.TogglePitchInversion();SavePreferences();RefreshChoices();}
+        public void ToggleHaptics()
+        {
+            bool enabled = haptics != null ? haptics.HapticsEnabled : PlayerPrefs.GetInt(CrashHaptics.PreferenceKey, 1) != 0;
+            if(haptics!=null)haptics.SetHapticsEnabled(!enabled);
+            else { PlayerPrefs.SetInt(CrashHaptics.PreferenceKey,enabled?0:1);PlayerPrefs.Save(); }
+            RefreshChoices();
+        }
         public void Fps30()=>SetFrameRate(30,true);
         public void Fps60()=>SetFrameRate(60,true);
         private void SetFrameRate(int value,bool save)

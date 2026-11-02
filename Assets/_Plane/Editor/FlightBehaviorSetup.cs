@@ -11,6 +11,43 @@ namespace Project.Plane
     /// <summary>Applique les corrections de vol et du soleil sans modifier les contrôleurs protégés.</summary>
     public static class FlightBehaviorSetup
     {
+        [MenuItem("Sky Courier/Appearance/Apply Sun And Readability")]
+        public static void ApplySunAndReadability()
+        {
+            var scene=ModuleSceneUtility.Open();
+            const string path="Assets/_Plane/Prefabs/Checkpoint_Ring.prefab";
+            var root=PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                var plate=root.GetComponentsInChildren<MeshFilter>(true)
+                    .FirstOrDefault(f=>f.sharedMesh!=null&&f.sharedMesh.name=="objective-capture-point-ring_0");
+                if(plate!=null)
+                {
+                    var nested=PrefabUtility.GetNearestPrefabInstanceRoot(plate.gameObject);
+                    if(nested!=null&&nested!=root)
+                        PrefabUtility.UnpackPrefabInstance(nested,PrefabUnpackMode.Completely,InteractionMode.AutomatedAction);
+                    var renderer=plate.GetComponent<Renderer>();
+                    var checkpoint=root.GetComponentInChildren<Checkpoint>(true);
+                    var serialized=new SerializedObject(checkpoint);var bindings=serialized.FindProperty("rendererMaterials");
+                    for(int i=bindings.arraySize-1;i>=0;i--)
+                        if(bindings.GetArrayElementAtIndex(i).FindPropertyRelative("target").objectReferenceValue==renderer)
+                            bindings.DeleteArrayElementAtIndex(i);
+                    serialized.ApplyModifiedPropertiesWithoutUndo();
+                    UnityEngine.Object.DestroyImmediate(plate.gameObject);
+                    PrefabUtility.SaveAsPrefabAsset(root,path);
+                }
+            }
+            finally{PrefabUtility.UnloadPrefabContents(root);}
+            var sun=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<Light>(true))
+                .Single(l=>l.type==LightType.Directional);
+            var sky=ModuleSceneUtility.Only<SkyboxSwitcher>(scene);
+            var properties=new SerializedObject(sky);properties.FindProperty("directionalLight").objectReferenceValue=sun;
+            properties.ApplyModifiedPropertiesWithoutUndo();
+            SceneManager.SetActiveScene(scene);RenderSettings.sun=sun;
+            ScoreSetup.Build();CollectibleSetup.Build();MobileUISetup.Configure(scene);
+            ModuleSceneUtility.Save(scene);
+            Debug.Log("[Sky Courier] Faux disque plein retiré des checkpoints, soleil piloté par Directional Light, pièces ×2 et compteurs agrandis. Aucun réglage global modifié.");
+        }
         [MenuItem("Sky Courier/18 - Fix Flight And Sun",false,180)]
         public static void Setup()
         {

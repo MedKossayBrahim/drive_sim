@@ -36,6 +36,7 @@ namespace Project.Plane
         private Vector3 thrustForce, liftForce, dragForce;
         public float EngineThrottle => engineThrottle;
         public bool DirectTiltControl { get; set; }
+        public bool DirectTouchControl { get; set; }
         public bool FallingNoseDown { get; set; }
         public FlightAssistance Assistance => assistance;
         public bool IsAirborne => sensors != null ? !sensors.HasGroundAltitude || sensors.AltitudeAGL > 3f :
@@ -106,6 +107,8 @@ namespace Project.Plane
                 Mathf.MoveTowards(engineThrottle, throttle, Time.fixedDeltaTime / config.EngineResponseTime);
             // Une coupure ou un réservoir vide annule la poussée ce pas, sans arrêter brutalement l'hélice.
             thrustForce = forwardAxis * (cut ? 0f : engineThrottle * config.MaxThrust);
+            if (DirectTouchControl)
+                thrustForce *= 1f - Mathf.InverseLerp(config.TouchCruiseSpeed * .9f, config.TouchCruiseSpeed, velocity.magnitude);
             float liftFactor = IsStalling ? Mathf.Lerp(config.StalledLiftFraction, 1f, Mathf.Pow(recovery, 4f)) : 1f;
             float lift = forward * forward * config.LiftCoefficient * liftFactor * (1f + flaps * config.FlapsExtraLift);
             lift = Mathf.Min(lift, body.mass * Physics.gravity.magnitude * config.MaxLiftLoadFactor);
@@ -120,16 +123,26 @@ namespace Project.Plane
                 // Cambrure automatique arcade : permet le vrai plané jusqu'au seuil, puis effondrement continu.
                 lift = Mathf.Min(body.mass * Physics.gravity.magnitude * config.MaxLiftLoadFactor, glideLift) * liftFactor;
             }
-            liftForce = upAxis * lift;
             float drag = config.DragCoefficient + flaps * config.FlapsExtraDrag + (gearDeployed ? config.GearExtraDrag : 0f) +
                 (cut ? config.EngineOffDrag : 0f);
             dragForce = -velocity * (velocity.magnitude * drag);
+            if (DirectTouchControl && !cut && !IsStalling && !FallingNoseDown && IsAirborne)
+            {
+                // Le joystick pilote une trajectoire : neutre = vol horizontal, cabré/piqué = montée/descente.
+                // Réduit seulement l'excès de portance ; ne soutient jamais artificiellement un avion décroché ou sans gaz.
+                float targetVertical = velocity.magnitude * forwardAxis.y;
+                float acceleration = Mathf.Clamp((targetVertical - velocity.y) * config.TouchFlightPathResponse, -12f, 12f);
+                float verticalLift = body.mass * (Physics.gravity.magnitude + acceleration) - thrustForce.y - dragForce.y;
+                float requestedLift = Mathf.Max(0f, verticalLift) / Mathf.Max(.25f, Vector3.Dot(upAxis, Vector3.up));
+                lift = Mathf.Min(lift, requestedLift);
+            }
+            liftForce = upAxis * lift;
             body.AddForce(thrustForce + liftForce + dragForce, ForceMode.Force);
 
             float authority = Mathf.Lerp(config.MinimumControlAuthority, 1f, Mathf.Clamp01(forward / config.FullControlSpeed));
             Vector3 angular = Quaternion.Inverse(rotation) * body.angularVelocity;
             Vector3 torque = new Vector3(-pitch * config.PitchAcceleration, yaw * config.YawAcceleration, -roll * config.RollAcceleration) * authority;
-            if (DirectTiltControl)
+            if (DirectTiltControl || DirectTouchControl)
             {
                 Vector3 levelUp = Vector3.ProjectOnPlane(Vector3.up, forwardAxis);
                 float bank = levelUp.sqrMagnitude > .001f ? -Vector3.SignedAngle(levelUp, upAxis, forwardAxis) : 0f;
@@ -137,10 +150,26 @@ namespace Project.Plane
                 float neutralGain = assistance == FlightAssistance.Easy ? config.EasyAssistance : config.ProAssistance;
                 float pitchGain = Mathf.Abs(pitch) < config.StabilizationInputDeadZone ? neutralGain : 1f;
                 float rollGain = Mathf.Abs(roll) < config.StabilizationInputDeadZone ? neutralGain : 1f;
-                torque.x = -(pitch * config.TiltPitchAngle - attitude) * Mathf.Deg2Rad * config.TiltPitchResponse * pitchGain * authority;
-                torque.z = -Mathf.DeltaAngle(bank, roll * config.TiltBankAngle) * Mathf.Deg2Rad * config.TiltRollResponse * rollGain * authority;
-                torque.x -= angular.x * config.TiltAngularDamping;
-                torque.z -= angular.z * config.TiltAngularDamping;
+                float bankLimit = DirectTouchControl ? config.TouchBankAngle : config.TiltBankAngle;
+                float pitchLimit = DirectTouchControl ? config.TouchPitchAngle : config.TiltPitchAngle;
+                float rollResponse = DirectTouchControl ? config.TouchRollResponse : config.TiltRollResponse;
+                float pitchResponse = DirectTouchControl ? config.TouchPitchResponse : config.TiltPitchResponse;
+                float damping = DirectTouchControl ? config.TouchAngularDamping : config.TiltAngularDamping;
+                Vector3 attitudeRates = angular;
+                if (DirectTouchControl && IsAirborne)
+                {
+                    // Ne pas freiner le virage coordonné comme s'il s'agissait d'un mouvement de tangage parasite.
+                    Vector3 coordinatedYaw = Quaternion.Inverse(rotation) * Vector3.up * Vector3.Dot(body.angularVelocity, Vector3.up);
+                    attitudeRates -= coordinatedYaw;
+                }
+                // Le stick demande un angle : le maintenir ne lance plus un tonneau continu.
+                // Sur la piste, garder les ailes à plat et utiliser le même geste pour le lacet au sol.
+                float targetBank = DirectTouchControl && !IsAirborne ? 0f : roll * bankLimit;
+                if (DirectTouchControl && !IsAirborne) torque.y += roll * config.YawAcceleration * authority;
+                torque.x = -(pitch * pitchLimit - attitude) * Mathf.Deg2Rad * pitchResponse * pitchGain * authority;
+                torque.z = -Mathf.DeltaAngle(bank, targetBank) * Mathf.Deg2Rad * rollResponse * rollGain * authority;
+                torque.x -= attitudeRates.x * damping;
+                torque.z -= attitudeRates.z * damping;
             }
             else if (config.AutoStabilization)
             {
@@ -155,6 +184,7 @@ namespace Project.Plane
                 float bankSine = Vector3.Dot(rotation * Vector3.right, Vector3.down);
                 float bankCosine = Mathf.Max(.3f, Vector3.Dot(upAxis, Vector3.up));
                 float desiredYawRate = Physics.gravity.magnitude * bankSine / bankCosine / Mathf.Max(10f, forward) * config.BankToTurn;
+                if (DirectTouchControl) desiredYawRate *= config.TouchTurnMultiplier;
                 // Le lacet automatique est autour de la verticale mondiale, pas du Z de l'avion incliné.
                 Vector3 correction = Quaternion.Inverse(rotation) * Vector3.up *
                     ((desiredYawRate - Vector3.Dot(body.angularVelocity, Vector3.up)) * config.CoordinatedTurnResponse);

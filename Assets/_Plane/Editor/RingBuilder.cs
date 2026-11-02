@@ -90,6 +90,14 @@ namespace Project.Plane
                 var bindings = new List<Checkpoint.RendererMaterials>();
                 foreach (var filter in model.GetComponentsInChildren<MeshFilter>(true))
                 {
+                    // Le socle plein du capture point ressemble à un soleil et bouche le passage vu de loin.
+                    // Retirer cette copie décorative ; conserver le GLB source et les quatre meshes creux.
+                    if(filter.sharedMesh.name=="objective-capture-point-ring_0")
+                    {
+                        var nested=PrefabUtility.GetNearestPrefabInstanceRoot(filter.gameObject);
+                        if(nested!=null)PrefabUtility.UnpackPrefabInstance(nested,PrefabUnpackMode.Completely,InteractionMode.AutomatedAction);
+                        Object.DestroyImmediate(filter.gameObject); continue;
+                    }
                     var renderer = filter.GetComponent<Renderer>();
                     var slots = originalSlots[filter.sharedMesh];
                     bindings.Add(new Checkpoint.RendererMaterials(renderer,
@@ -104,6 +112,8 @@ namespace Project.Plane
                 sphere.radius = 8f;
                 sphere.center = Vector3.zero;
                 var checkpoint = triggerObject.AddComponent<Checkpoint>();
+                int checkpointLayer=LayerMask.NameToLayer("Checkpoint");
+                if(checkpointLayer>=0)triggerObject.layer=checkpointLayer;
                 int plane = LayerMask.NameToLayer("Plane");
                 checkpoint.Configure(bindings.ToArray(), plane >= 0 ? 1 << plane : ~0);
                 foreach (var transform in root.GetComponentsInChildren<Transform>(true)) transform.gameObject.isStatic = false;
@@ -114,7 +124,7 @@ namespace Project.Plane
                 AssetDatabase.SaveAssets();
                 Selection.activeObject = prefab;
                 Debug.Log("[Sky Courier] Checkpoint_Ring.prefab créé : modèle source conservé, diamètre ≈20 m, " +
-                    "sphère trigger de rayon 8 m, 5 meshes, 3 familles de 4 matériaux. " +
+                    "sphère trigger de rayon 8 m, 4 meshes creux (socle plein retiré), 3 familles de 4 matériaux. " +
                     "Animator désactivé sur cette copie, aucune collision solide.", prefab);
             }
             catch (Exception exception) { Debug.LogException(exception); }

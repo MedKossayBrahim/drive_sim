@@ -46,6 +46,14 @@ MonoBehaviour:
   tiltAngularDamping: 5
   bankToTurn: 1
   coordinatedTurnResponse: 3
+  touchBankAngle: 65
+  touchPitchAngle: 30
+  touchRollResponse: 16
+  touchPitchResponse: 10
+  touchAngularDamping: 4.5
+  touchTurnMultiplier: 1.6
+  touchCruiseSpeed: 80
+  touchFlightPathResponse: 1.8
   easyAssistance: 1.2
   proAssistance: 0.18
   fallingNoseDownAcceleration: 1.2

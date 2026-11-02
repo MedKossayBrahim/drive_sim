@@ -189,6 +189,7 @@ GameObject:
   - component: {fileID: 4451758826326270393}
   - component: {fileID: 8327468434818472450}
   - component: {fileID: 5815629004686666891}
+  - component: {fileID: 7668516467970949016}
   m_Layer: 9
   m_Name: Plane
   m_TagString: Untagged
@@ -307,6 +308,9 @@ MonoBehaviour:
   useMobileDefault: 1
   throttleChangeSpeed: 0.35
   axisSmoothing: 8
+  touchAxisSmoothing: 14
+  touchSensitivity: 1.2
+  touchResponseExponent: 0.85
   useGyroscope: 0
   tiltDeadZoneDegrees: 3
   tiltSensitivity: 1
@@ -578,6 +582,27 @@ MonoBehaviour:
   maximumStallPitchAcceleration: 4
   stalledWeightSupport: 0.5
   fallingWeightSupport: 0.15
+--- !u!114 &7668516467970949016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3491532719984513468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0121a20d2db54948960eeca344c240d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Project.Plane.CrashHaptics
+  sensors: {fileID: 0}
+  health: {fileID: 0}
+  fallDetector: {fileID: 0}
+  input: {fileID: 0}
+  minimumPulseInterval: 0.22
+  maximumPulseInterval: 1.1
+  minimumPulseMilliseconds: 35
+  maximumPulseMilliseconds: 90
+  crashPulseMilliseconds: 400
 --- !u!1 &8261240695232405632
 GameObject:
   m_ObjectHideFlags: 0

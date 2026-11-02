@@ -111,6 +111,10 @@ namespace Project.Plane
                 var panel = Rect("Panel",pauseSafe); Place(panel,new Vector2(0.5f,0.5f),Vector2.zero,new Vector2(660,840)); Background(panel,Dark); Layout(panel,true,12);
                 Wire(hud,"sensors",sensors[0],"input",input,"checkpoints",managers[0],"speed",speed,"altitude",altitude,"heading",heading,"gas",gas,"fuel",fuel,"gForce",g,"navigation",navigation,"course",course,"message",message,"stallLamp",stall,"fuelLamp",low,"terrainLamp",terrain,"gasFill",gasFill,"fuelFill",fuelFill,"horizon",horizon,"compassTape",tape,"navigationArrow",arrow.rectTransform);
                 Wire(menu,"input",input,"hud",hud,"pausePanel",pause.gameObject,"hudContent",safe.gameObject);
+                var globalScore = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<ScoreManager>(true)).FirstOrDefault();
+                Wire(hud,"globalScore",globalScore);
+                var landingMission = scene.GetRootGameObjects().SelectMany(r => r.GetComponentsInChildren<LandingMission>(true)).FirstOrDefault();
+                Wire(hud,"landingMission",landingMission);
                 pause.gameObject.SetActive(false);
                 if (!scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<EventSystem>(true)).Any())
                 {

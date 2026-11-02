@@ -22,6 +22,11 @@ namespace Project.Plane
         [SerializeField, Min(0f)] private float throttleChangeSpeed = 0.35f;
         [SerializeField, Min(0f), Tooltip("Réactivité exponentielle ; 0 = réponse immédiate.")]
         private float axisSmoothing = 8f;
+        [Header("Joystick tactile")]
+        [SerializeField, Min(0f)] private float touchAxisSmoothing = 14f;
+        [SerializeField, Range(.5f, 2f)] private float touchSensitivity = 1.2f;
+        [SerializeField, Range(.5f, 1.5f), Tooltip("Moins de 1 : réponse plus sensible aux petits déplacements du pouce.")]
+        private float touchResponseExponent = .85f;
 
         [Header("Inclinaison")]
         [SerializeField] private bool useGyroscope = false;
@@ -118,6 +123,7 @@ namespace Project.Plane
             }
             mode = appliedMode = value;
             controller.DirectTiltControl = value == ControlMode.Tilt;
+            controller.DirectTouchControl = value == ControlMode.Touch;
             previousGyroscope = useGyroscope;
             previousMouseSimulation = simulateTiltWithMouseInEditor;
             smoothedAxes = Vector2.zero;
@@ -155,8 +161,10 @@ namespace Project.Plane
             {
                 if (throttleSlider != null) throttleValue = throttleSlider.Value;
                 axes = mode == ControlMode.Touch ? (joystick != null ? joystick.Value : Vector2.zero) : ReadTilt();
+                if (mode == ControlMode.Touch)
+                    axes = new Vector2(TouchAxis(axes.x), TouchAxis(axes.y));
             }
-            float smoothing = mode == ControlMode.Tilt ? tiltAxisSmoothing : axisSmoothing;
+            float smoothing = mode == ControlMode.Tilt ? tiltAxisSmoothing : mode == ControlMode.Touch ? touchAxisSmoothing : axisSmoothing;
             float blend = smoothing <= 0f ? 1f : 1f - Mathf.Exp(-smoothing * Time.deltaTime);
             smoothedAxes = Vector2.Lerp(smoothedAxes, axes, blend);
             float targetYaw = mode != ControlMode.Tilt && yawAction != null ? yawAction.ReadValue<float>() : 0f;
@@ -165,6 +173,9 @@ namespace Project.Plane
             controller.Pitch = smoothedAxes.y;
             controller.Throttle = throttleValue;
         }
+
+        private float TouchAxis(float value) => Mathf.Sign(value) * Mathf.Clamp01(
+            Mathf.Pow(Mathf.Abs(value), touchResponseExponent) * touchSensitivity);
 
         private bool FindSensor(out GravitySensor gravity, out Accelerometer accelerometer, out AttitudeSensor attitude, out string source)
         {
@@ -296,6 +307,7 @@ namespace Project.Plane
         }
         private void OnDisable()
         {
+            if (controller != null) controller.DirectTouchControl = false;
             map?.Disable();
             if (runtimeActions != null) Destroy(runtimeActions);
             runtimeActions = null; map = null;

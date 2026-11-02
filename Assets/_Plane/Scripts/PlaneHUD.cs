@@ -11,6 +11,8 @@ namespace Project.Plane
         [SerializeField] private PlaneSensors sensors = null;
         [SerializeField] private PlaneInput input = null;
         [SerializeField] private CheckpointManager checkpoints = null;
+        [SerializeField] private ScoreManager globalScore = null;
+        [SerializeField] private LandingMission landingMission = null;
         [SerializeField] private TMP_Text speed = null, altitude = null, heading = null, gas = null, fuel = null, gForce = null, navigation = null, course = null, message = null;
         [SerializeField] private TMP_Text stallLamp = null, fuelLamp = null, terrainLamp = null;
         [SerializeField] private Image gasFill = null, fuelFill = null;
@@ -95,8 +97,16 @@ namespace Project.Plane
             horizon.localRotation = Quaternion.Euler(0f, 0f, sensors.RollDegrees);
             horizon.anchoredPosition = new Vector2(0f, -Mathf.Clamp(sensors.PitchDegrees, -90f, 90f) * pitchPixelsPerDegree);
             compassTape.anchoredPosition = new Vector2(-sensors.HeadingDegrees * compassPixelsPerDegree, 0f);
-            navigationArrow.gameObject.SetActive(sensors.HasNextCheckpoint);
-            if (sensors.HasNextCheckpoint)
+            bool landing=landingMission!=null&&landingMission.CanLand;
+            navigationArrow.gameObject.SetActive(landing||sensors.HasNextCheckpoint);
+            if(landing)
+            {
+                Vector3 delta=landingMission.Arrival.AimPoint-sensors.transform.position;
+                float bearing=Mathf.Repeat(Mathf.Atan2(delta.x,delta.z)*Mathf.Rad2Deg,360f);
+                navigationArrow.localRotation=Quaternion.Euler(0,0,-Mathf.DeltaAngle(sensors.HeadingDegrees,bearing));
+                navigation.text=$"AÉROPORT D’ARRIVÉE\n{delta.magnitude:0} m · CAP {bearing:000}";
+            }
+            else if (sensors.HasNextCheckpoint)
             {
                 navigationArrow.localRotation = Quaternion.Euler(0f, 0f, -sensors.RelativeBearingToNextCheckpoint);
                 string ringName = sensors.NextCheckpoint.name == "Trigger" && sensors.NextCheckpoint.transform.parent != null ?
@@ -106,8 +116,8 @@ namespace Project.Plane
             else navigation.text = checkpoints != null && checkpoints.IsComplete ? "PARCOURS TERMINE" : "AUCUN ANNEAU";
             if (checkpoints == null) { course.text = "CHRONO -- | SCORE --"; RenderBoundaryMessage(); return; }
             float elapsed = checkpoints.ElapsedTime;
-            course.text = $"{(int)elapsed / 60:00}:{(int)elapsed % 60:00}  |  SCORE {checkpoints.Score}\nANNEAUX {checkpoints.PassedCount}/{checkpoints.Checkpoints.Count}";
-            if (checkpoints.IsComplete && !previousComplete) ShowMessage("PARCOURS TERMINE !", 6f);
+            course.text = $"{(int)elapsed / 60:00}:{(int)elapsed % 60:00}  |  SCORE {(globalScore != null ? globalScore.Score : checkpoints.Score)}\nANNEAUX {checkpoints.PassedCount}/{checkpoints.Checkpoints.Count}";
+            if (checkpoints.IsComplete && !previousComplete) ShowMessage(landingMission!=null?"ANNEAUX TERMINÉS — OBJECTIF : ATTERRIR":"PARCOURS TERMINE !", 6f);
             else if (checkpoints.PassedCount > previousPassed) ShowMessage("ANNEAU VALIDE", 2f);
             previousPassed = checkpoints.PassedCount; previousComplete = checkpoints.IsComplete;
             RenderBoundaryMessage();

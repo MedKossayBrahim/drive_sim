@@ -10,8 +10,8 @@ namespace Project.Plane
         [SerializeField] private RectTransform baseRect = null;
         [SerializeField] private RectTransform handle = null;
         [SerializeField, Min(1f), Tooltip("Rayon en unités du Canvas, indépendant de sa résolution écran.")]
-        private float radius = 100f;
-        [SerializeField, Range(0f, 0.95f)] private float deadZone = 0.12f;
+        private float radius = 85f;
+        [SerializeField, Range(0f, 0.95f)] private float deadZone = 0.06f;
         [SerializeField, Min(0f)] private float returnSpeed = 14f;
         [SerializeField] private bool floating = false;
         private RectTransform area;

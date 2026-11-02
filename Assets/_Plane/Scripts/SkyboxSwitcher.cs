@@ -20,6 +20,9 @@ namespace Project.Plane
         [SerializeField, Min(3f), Tooltip("Durée d'un tour Noon > Sunset > Night > Noon, en secondes de jeu.")]
         private float cycleDuration = 600f;
         [SerializeField, Min(0.5f)] private float environmentRefreshInterval = 2f;
+        [Header("Visibilité du relief")]
+        [SerializeField, Range(.01f,1f)] private float fogDensityMultiplier = .1f;
+        [SerializeField, Min(0f)] private float maximumFogDensity = .0006f;
         [Header("Soleil et lune — toujours dans la partie haute du ciel")]
         [SerializeField, Range(30f,80f)] private float minimumSunElevation = 45f;
         [SerializeField, Range(.1f,3f)] private float sunAngularRadius = .65f;
@@ -54,9 +57,9 @@ namespace Project.Plane
 
         private SkyPreset Preset(SkyPresetId id) => id == SkyPresetId.Noon ? noon : id == SkyPresetId.Sunset ? sunset : id == SkyPresetId.Night ? night : storm;
         private static float BaseRotation(SkyPreset p) => (p.SkyMaterial.HasProperty("_Rotation") ? p.SkyMaterial.GetFloat("_Rotation") : 0f) + p.SkyRotationOffset;
-        private static State TargetState(SkyPreset p) => new State
+        private State TargetState(SkyPreset p) => new State
         { LightColor=p.DirectionalLightColor, Intensity=p.DirectionalLightIntensity, Rotation=Quaternion.Euler(p.SunEuler),
-          FogColor=p.FogColor, Density=p.FogEnabled?p.FogDensity:0f, Exposure=p.Exposure };
+          FogColor=p.FogColor, Density=p.FogEnabled?Mathf.Min(maximumFogDensity,p.FogDensity*fogDensityMultiplier):0f, Exposure=p.Exposure };
         private static State Lerp(State a, State b, float t) => new State
         { LightColor=Color.Lerp(a.LightColor,b.LightColor,t), Intensity=Mathf.Lerp(a.Intensity,b.Intensity,t),
           Rotation=Quaternion.Slerp(a.Rotation,b.Rotation,t), FogColor=Color.Lerp(a.FogColor,b.FogColor,t),
@@ -187,10 +190,23 @@ namespace Project.Plane
         {
             runtimeSky.SetFloat("_Blend",blend);runtimeSky.SetFloat("_Exposure",state.Exposure);runtimeSky.SetFloat("_Rotation",sharedYaw);
             state.Rotation=RaiseSun(state.Rotation);
-            runtimeSky.SetVector("_SunDirection",-(state.Rotation*Vector3.forward));
-            runtimeSky.SetColor("_SunColor",state.LightColor*Mathf.Max(.02f,state.Intensity)*sunBrightness);
             if(controlledSun!=null){controlledSun.color=state.LightColor;controlledSun.intensity=state.Intensity;controlledSun.transform.rotation=state.Rotation;}
+            SynchronizeSunWithLight();
             RenderSettings.fog=true;RenderSettings.fogMode=FogMode.ExponentialSquared;RenderSettings.fogColor=state.FogColor;RenderSettings.fogDensity=state.Density;
+        }
+        private void LateUpdate()
+        {
+            if(!Application.isPlaying||!captured||controlledSun==null)return;
+            // La Directional Light est la référence, même lorsqu'elle est orientée directement dans l'Inspector.
+            controlledSun.transform.rotation=RaiseSun(controlledSun.transform.rotation);
+            SynchronizeSunWithLight();
+        }
+        private void SynchronizeSunWithLight()
+        {
+            if(runtimeSky==null||controlledSun==null)return;
+            RenderSettings.sun=controlledSun;
+            runtimeSky.SetVector("_SunDirection",-controlledSun.transform.forward);
+            runtimeSky.SetColor("_SunColor",controlledSun.color*Mathf.Max(0f,controlledSun.intensity)*sunBrightness);
         }
         private void RefreshEnvironment(bool force)
         {

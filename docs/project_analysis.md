@@ -2,6 +2,148 @@
 
 État inspecté le **2 novembre 2026**. Analyse des fichiers présents dans le dépôt, et non des seules fonctionnalités demandées dans le chat.
 
+## Scénario final — collecte et atterrissage à l’arrivée
+
+Ajout du 2 novembre 2026. Cette section remplace les anciennes observations d’absence de fin de mission et de simple respawn automatique pour **Plane_Scene**.
+
+### Règles de jeu et configuration
+
+1. Décoller de la piste de départ, collecter **15 pièces minimum** parmi les 55 disponibles, puis rejoindre l’aéroport d’arrivée. Les anneaux restent un parcours de guidage et de points ; leur validation intégrale n’est pas obligatoire par défaut.
+2. L’aéroport final est centré en **(0, 0, 3000)**, avec une piste de **48 × 900 m**, de Z=2550 à Z=3450, au niveau MSL 0. Apron, taxiway, hangar, tour et bandes lumineuses complètent l’arrivée. Aucun asset d’aéroport à licence inconnue utilisé.
+3. Seule cette piste donne la victoire : contact physique réel, avion aligné à moins de 20°, roulis ≤12°, vitesse verticale ≤2 m/s, gaz ≤15 % et vitesse au sol ≤5 m/s pendant **2 secondes**. Le survol, même à 12 cm du sol, et le posé sur la piste de départ sont refusés.
+4. Un freinage de roues de **8 m/s²** aide à l’arrêt après le posé, uniquement sur la piste, en assiette correcte et gaz coupés. Il n’agit pas en vol.
+5. Un atterrissage valide ajoute **500 points** et affiche MISSION RÉUSSIE. L’avion est immobilisé ; Recommencer recharge la scène et remet score, pièces et mission à zéro.
+6. Le contact avec une montagne est mortel dans ce scénario : explosion de PlaneHealth, commandes arrêtées et écran CRASH — MISSION ÉCHOUÉE. Le coordinateur arrête les coroutines de respawn de PlaneHealth via l’API MonoBehaviour publique ; son script et ses seuils restent inchangés. Recommencer reste disponible.
+7. Une ceinture périphérique continue de montagnes ferme la vallée : pied à **3600 m** du centre, crête à **3850 m**, sommets de **1050 à environ 1260 m**, donc au-dessus du plafond de vol de 800 m. Le pied du massif commence environ **150 m après le bout de la piste finale**. Cette barrière comporte un MeshCollider statique fermé, un visuel de 384 triangles et le matériau partagé du relief. Le collider utilise une copie subdivisée de 6144 triangles (arête maximale 357,85 m), afin d’éviter l’avertissement PhysX sur les triangles dépassant 500 m, sans alourdir le rendu. Les collines intérieures restent des obstacles solides ; la ceinture périphérique empêche la sortie par survol.
+8. Les montagnes intérieures sont régénérées en préservant la piste finale et son approche. Les layers et la matrice de collision globale ne sont pas modifiés.
+9. Le brouillard des presets est multiplié par **0,1** et plafonné à **0,0006** pour conserver la visibilité des massifs : Jour 0,00015 ; Coucher 0,0003 ; Nuit 0,0004 ; Orage 0,0006. Les assets SkyPreset et EXR restent conservés.
+
+Les paramètres de l’objectif, du posé, du freinage et de la ceinture sont dans `Assets/_Plane/Prefabs/FlightMissionSettings.asset`. Le générateur refuse un objectif supérieur au nombre de pièces disponibles et des rayons de relief incohérents.
+
+### Architecture et hiérarchie ajoutées
+
+- `LandingMission` : état Collecting → Approach → Won/Failed, décollage préalable, bonus, arrêt terminal et événements publics. Aucun accès aux champs privés de PlaneHealth ou de CheckpointManager.
+- `LandingZone` : validation du posé et freinage dans FixedUpdate, sur le collider exact de la piste d’arrivée.
+- `PlaneLandingContact` : contacts physiques de support, invalidés au reset ; un simple raycast de proximité ne suffit plus pour gagner.
+- `PlaneMountainCollision` et `MountainHazard` : adaptateur sur l’instance avion et marqueurs de massif, sans Update par montagne. La piste conserve les règles normales d’impact de PlaneHealth.
+- `LandingMissionHUD` : objectif visible dès le départ et écrans terminaux dans son propre Canvas, indépendants du HUD généré. Les boutons recherchent le PlaneMenu courant, y compris après une reconstruction de Build HUD.
+- La navigation de PlaneHUD pointe vers l’aéroport dès que la collecte est suffisante. Le passage des huit anneaux ne se présente plus comme la fin du jeu lorsque ce coordinateur est présent.
+
+```text
+Gameplay/FinalMission (LandingMission)
+  MissionCanvas (LandingMissionHUD)
+    SafeArea/Objective
+    Result/Panel : titre, bilan, RECOMMENCER, QUITTER
+Environment/ArrivalAirport (LandingZone, instance de prefab)
+  Runway_Arrival, Apron_Arrival, Taxiway_Arrival, marquages, bâtiments
+Environment/MountainBoundary (MeshCollider, MountainHazard)
+Environment/Mountains (MountainHazard sur la racine uniquement)
+Plane : PlaneLandingContact et PlaneMountainCollision sur l’instance de scène
+```
+
+Menu idempotent : **Sky Courier/Scenario/Build Final Flight Mission**. Il reconstruit ses racines, réutilise ses assets et dégage les montagnes existantes de l’arrivée. Il ne modifie ni TagManager, ni DynamicsManager, ni PlayerSettings, ni les scènes de build.
+
+### Vérification de cette tâche
+
+- Générateur exécuté deux fois : mêmes nombres d’objets, une mission, un aéroport d’arrivée, une ceinture et 55 pièces.
+- **432 raycasts** sur le collider de la ceinture, répartis autour de la vallée et aux altitudes 2, 100 et 799,85 m : aucun passage détecté. Visuel de ceinture : **384 triangles**, hauteur maximale mesurée **1259,555 m**. Après subdivision du collider : 432 sondes supplémentaires réussies, impact physique à 799,85 m et échec terminal revérifiés ; collider de 6144 triangles, arête maximale 357,85 m.
+- **41 assertions Play réussies** : décollage, collecte insuffisante puis suffisante, refus de victoire en vol, refus du survol bas y compris à 12 cm, refus de l’autre piste, freinage/arrêt sur la bonne piste, victoire sans crash, bonus unique, écran de réussite, Restart, alerte TERRAIN, vraie collision à 799,85 m, explosion, échec terminal sans respawn, écran d’échec, brouillard des quatre presets, Restart après mort et contact de montagne mortel à 2 m/s.
+- Les ramassages de cette suite utilisent l’API des Collectible ; les phases d’approche sont imposées au Rigidbody avec le contrôleur désactivé pour isoler les collisions et la validation. Le posé, le freinage, les contacts et les impacts sont simulés par PhysX. Ce n’est pas une mission complète pilotée au joystick ni un test sur téléphone.
+- Scripts temporaires de test supprimés. Compilations runtime et Editor effectuées. Les empreintes de PlaneController, PlaneInput, PlaneHealth, Checkpoint, CheckpointManager, FallCrashDetector, ProjectSettings et des autres scènes sont inchangées par cette tâche.
+
+### Fichiers de cette tâche et étapes manuelles
+
+Créés dans Scripts : `FlightMissionSettings.cs`, `LandingMission.cs`, `LandingZone.cs`, `LandingMissionHUD.cs`, `MountainHazard.cs`, `PlaneMountainCollision.cs`, `PlaneLandingContact.cs`.
+
+Créé dans Editor : `FinalFlightMissionBuilder.cs`. Nouveaux assets : `Prefabs/FlightMissionSettings.asset`, `Prefabs/Airport/ArrivalAirport.prefab`, `Models/Procedural/FinalMission/MountainBoundary.asset`, `Models/Procedural/FinalMission/MountainBoundary_Collision.asset`, `Materials/Arrival_Lights.mat`, et leurs métadonnées.
+
+Modifiés : `PlaneHUD.cs`, `SkyboxSwitcher.cs`, `PlaneHUDSetup.cs`, `MountainBuilder.cs`, `Plane_Scene.unity`, ce document et les données de relief nécessaires à la génération. Les scripts de vol, de santé et de checkpoints n’ont pas été modifiés dans cette tâche.
+
+Aucune assignation Unity nécessaire : le scénario est déjà enregistré dans **Assets/_Plane/Scenes/Plane_Scene.unity**. Pour tester : décoller, collecter 15 pièces, suivre la flèche d’arrivée, s’aligner, réduire les gaz et s’arrêter avant les montagnes. Les seuils se règlent dans FlightMissionSettings ; relancer le menu après une modification de la géométrie.
+
+Android : reconstruire l’APK de cette scène avec le builder Sky Courier existant, puis tester la lisibilité de l’approche, le freinage, les écrans de fin et les performances sur appareil. Aucun nouvel APK ni mesure FPS Android réalisé pour cette tâche. Le builder Android change les réglages globaux lorsqu’il est exécuté : annoncer son lancement avant de l’utiliser.
+
+---
+
+## Mise à jour — score, pièces, montagnes et vibrations
+
+Implémentation du 2 novembre 2026 sur `feature/plane`. Cette section complète l’audit initial ci-dessous ; ses anciennes observations sur le score, la sauvegarde Git et les modules absents décrivent l’état antérieur. Le socle a depuis été enregistré dans le commit local `35bc45f`. Les nouveaux modules de cette section ne sont pas encore commités.
+
+### Nouveaux modules et réglages
+
+- **ScoreManager**, sur `Gameplay/Score`, possède le score total et le nombre de pièces. Il lit le compteur public du CheckpointManager et écoute `OnAllPassed`, sans écrire son score. Valeurs Inspector : **100 points/anneau**, **5 points/seconde restante entière** à la réussite et **0 point de pénalité/crash**. `AddScore(int, string)`, `OnScoreChanged` et `OnPointsAwarded` constituent l’API. Le record utilise `SkyCourier.BestScore`.
+- Le score et les pièces restent acquis après crash/respawn. Restart recharge la scène et recommence à zéro ; le record reste enregistré. La désactivation/réactivation du composant ne repointe pas les anneaux déjà récompensés. Un appel isolé à `RestartCourse()` ne constitue pas une nouvelle partie de score : employer le Restart complet pour cela.
+- **ScoreHUD** possède un Canvas séparé sous `Gameplay/Score/ScoreCanvas`. Total, record, compteur et retour `+100`/`+25` ont leur propre emplacement : ils ne remplacent aucun message de chute/plafond. Le panneau suit la Safe Area, se masque avant Décoller et pendant les réglages, et survit à Build HUD. Le HUD de vol lit lui aussi le score global s’il est présent.
+- **Collectible** : pièce procédurale de **48 triangles**, valeur **25**, SphereCollider de rayon **4 m**, rotation/oscillation du visuel, pop de 0,2 s, puis désactivation. Le pickup est verrouillé avant l’attribution des points, donc plusieurs colliders ne doublent pas le gain. Un AudioSource est optionnel ; aucun son ajouté.
+- **CollectibleSpawner** : données et instances sérialisées dans la scène ; aucun double spawn au démarrage. Le générateur place **55 pièces** dans des lignes/arcs entre les huit anneaux et trois bonus près de chacun. Les pièces reviennent au Restart, restent collectées au respawn.
+- Les pièces restent sur Default, avec **includeLayers = Plane**, **excludeLayers = ~Plane**, priorité locale 100, et vérification du Rigidbody exact de l’avion. Cargo et les autres objets sont refusés. Aucun nouveau layer ni changement de matrice globale.
+- **WorldModuleSettings**, asset `Assets/_Plane/Prefabs/WorldModuleSettings.asset` : seed **1741**, espacement des pièces **65 m**, valeur/rayon/bonus réglables ; 28 montagnes, rayons principaux 1800–3500 m et quelques groupes plus proches, tailles et dégagement réglables.
+- **MountainBuilder** : racine `Environment/Mountains`, **28 montagnes de 168 triangles chacune**, un matériau partagé et shader URP à couleurs d’altitude (base verte, roche, neige), éclairage ambiant/soleil et brouillard du ciel. Objets statiques, pas de script par montagne, aucune ombre temps réel. Chaque MeshCollider statique réutilise le mesh basse résolution sur Ground.
+- Mesures après génération : **4704 triangles au total**, plus haut sommet **515,72 m**, sommet inférieur à l’alerte 600 m ; rayon externe réel **3725,62 m**, inférieur à la limite 4000 m ; marge horizontale minimale entre une base conservatrice et un segment du parcours **344,51 m**. La génération évite aussi l’aéroport et RefuelZone. Un paramétrage impossible saute un emplacement avec avertissement au lieu de bloquer le parcours.
+- **CrashHaptics**, ajouté au prefab Plane, écoute les événements de terrain, chute, décrochage et crash sans modifier leurs scripts. Impulsions de **35–90 ms**, intervalle **1,1–0,22 s** selon le danger ; impact final **400 ms**. Coupure lors de pause, perte de focus, désactivation ou disparition du danger. Vibration OFF/ON dans les réglages, préférence `SkyCourier.Haptics`, activée par défaut.
+- Le pont JNI est limité à `UNITY_ANDROID && !UNITY_EDITOR`, met en cache Vibrator/VibrationEffect, utilise l’API 26+ puis le repli historique, et Handheld.Vibrate en dernier recours. Le repli Handheld a une durée dépendante du téléphone et ne permet pas le même contrôle fin d’annulation que Vibrator.
+- **HapticsAndroidManifest** ajoute `android.permission.VIBRATE` au manifeste de unityLibrary pendant le callback post-génération Gradle, de manière idempotente. Aucun manifeste global, package, PlayerSettings ou liste de scènes modifié. La permission finale dans un nouvel APK reste à vérifier lors du rebuild ; aucun nouvel APK produit pour cette tâche.
+
+### Menus et hiérarchie
+
+Les nouveaux menus ne modifient aucun réglage global :
+
+1. `Sky Courier/Gameplay/Setup Score And Haptics` : raccorde le score et son Canvas, ajoute l’haptique au prefab Plane.
+2. `Sky Courier/Gameplay/Build Collectibles` : remplace uniquement `Gameplay/Collectibles` et ses assets propres. Requiert le ScoreManager existant.
+3. `Sky Courier/Environment/Build Mountains` : remplace uniquement `Environment/Mountains` et ses assets propres.
+4. Les menus existants **9 - Build HUD** et **16 - Setup Mobile UI** recréent correctement les références de score et l’option Vibration.
+
+```text
+Gameplay
+  Score (ScoreManager)
+    ScoreCanvas (ScoreHUD, CanvasScaler)
+      SafeArea
+        ScorePanel : Total / Coins / Points
+  Collectibles (CollectibleSpawner)
+    Coin_001 ... Coin_055
+  Checkpoints (conservé)
+  Plane (prefab, avec CrashHaptics)
+Environment
+  Mountains
+    Mountain_01 ... Mountain_28
+HUD/PauseMenu/SafeArea/Panel/Viewport/Content/Vibration
+```
+
+### Vérification effectuée
+
+- Assemblies runtime et Editor compilées ; la branche conditionnelle **UNITY_ANDROID sans UNITY_EDITOR** compile également avec les références Unity installées. Cela ne constitue pas une construction IL2CPP/APK.
+- ScoreSetup, CollectibleSetup, MountainBuilder, Build HUD et MobileUISetup exécutés **deux fois chacun** : mêmes nombres d’objets, mêmes positions et mêmes tailles de meshes ; une racine Score, un spawner, un Canvas de score, un composant haptique et une ligne Vibration. Résultat final : 55 pièces et 28 montagnes, sans doublons.
+- **35 assertions Play réussies** : nouvelle partie à zéro ; présence haptique ; interrupteur et préférence ; pickup interdit avant Décoller et en Pause ; Time.timeScale = 1 à la reprise ; Touch ; repli Touch lorsque Tilt n’a pas de capteur ; refus Cargo ; filtres locaux ; vrai ramassage physique Plane +25 ; refus d’un deuxième gain ; fin du pop ; franchissement physique de chaque anneau ; +800 et bonus de temps exact ; réabonnement sans double gain ; expiration sans bonus ; moteur coupé au réservoir vide ; ravitaillement par API ; crash avec commandes coupées et pénalité 0 ; explosion ; respawn avec santé/commandes restaurées et score conservé ; record ; Restart avec score/pièces/anneaux/carburant/gaz réinitialisés et toutes les pièces réapparues.
+- Pour isoler les triggers, le test des anneaux positionne le Rigidbody et lui donne une vitesse positive, avec contrôleur et gravité temporairement désactivés en Play. Le test de respawn de cette suite provoque le crash par `PlaneHealth.ApplyDamage` : ce n’est pas une validation du pilotage Tilt sur appareil ni une simulation de mission complète.
+- **Six assertions Play supplémentaires réussies sur une montagne réelle** : raycast du collider, alerte TERRAIN par SphereCast avant impact, vrai choc physique déclenchant `PlaneHealth.OnCrashed`, impact normal **40,20 m/s**, explosion et conservation du score avec pénalité 0. La trajectoire est imposée au Rigidbody pour isoler le relief ; le pilotage mobile n’est pas simulé. Total : **41 assertions Play réussies**.
+- Validation géométrique réelle dans Unity : triangles, matériau unique, colliders, Ground, absence de scripts et d’ombres, dégagement du parcours/plafond et absence de diagnostic d’erreur du shader montagne. Prévisualisation du HUD et des montagnes en Game View effectuée.
+- Permission VIBRATE : ajout exécuté deux fois sur un manifeste de test, une seule déclaration obtenue. La fusion finale Gradle dans un nouvel APK n’a pas encore été exécutée.
+- Empreintes des scripts protégés, des réglages ProjectSettings, de SampleScene et de la scène homonyme hors `_Plane` comparées à l’état de départ. Aucun changement causé par les générateurs du module.
+- Les préférences utilisateur sont sauvegardées avant la suite de tests et restaurées ensuite. Les outils temporaires de validation sont retirés à la fin de la tâche.
+- **Pas de test de vibration sur téléphone, de capture de Profiler Android ni de mesure FPS garantie.** Les teintes utilisent le soleil/brouillard actifs ; vérifier visuellement les quatre ciels sur le GPU cible.
+
+### Fichiers et étapes manuelles
+
+Créés dans Scripts : `ScoreManager.cs`, `ScoreHUD.cs`, `Collectible.cs`, `CollectibleSpawner.cs`, `CrashHaptics.cs`, `WorldModuleSettings.cs`.
+
+Créés dans Editor : `ScoreSetup.cs`, `CollectibleSetup.cs`, `MountainBuilder.cs`, `ModuleSceneUtility.cs`, `HapticsAndroidManifest.cs`.
+
+Autres créations : `VFX/MountainVertexColor.shader`, matériaux Coin_Gold et Mountain_Altitude, `Models/Procedural/Coin.asset`, les 28 meshes `Models/Procedural/Mountains/Mountain_*.asset`, `Prefabs/Gameplay/Collectible_Coin.prefab`, `Prefabs/WorldModuleSettings.asset`, et leurs `.meta`.
+
+Modifiés : `PlaneHUD.cs` (source de score global), `PlaneMenu.cs` (Vibration), `PlaneHUDSetup.cs` (raccordement du score après reconstruction), `MobileUISetup.cs` (ligne Vibration et référence), Plane.prefab (CrashHaptics), Plane_Scene (nouveaux objets et UI), ce document. Aucun script de vol, santé, chute ou checkpoint modifié.
+
+Aucune assignation Unity nécessaire pour utiliser la scène préparée. Pour changer le placement, régler WorldModuleSettings puis relancer uniquement le générateur concerné. Les valeurs du score et des vibrations se règlent sur leurs composants ; les réglages utilisateur restent dans PlayerPrefs.
+
+Sur téléphone :
+
+1. Reconstruire un nouvel APK de **`Assets/_Plane/Scenes/Plane_Scene.unity`** ; l’ancien APK 0.1.0 ne contient pas ces modules. Le builder Android existant modifie PlayerSettings et la liste de scènes lorsqu’il est exécuté : prévenir avant son lancement.
+2. Vérifier dans le manifeste fusionné/APK `android.permission.VIBRATE`, puis tester ON/OFF, les impulsions avant impact, leur arrêt après récupération/Pause et l’impulsion de crash sur un vrai téléphone équipé d’un vibreur.
+3. Tester Décoller/calibration, Touch/Tilt et multitouch, ramassage, crash/respawn, Restart et persistance du record/réglages après fermeture de l’application.
+4. Vérifier les monts, les pièces et le brouillard sous Jour/Coucher/Nuit/Orage ; l’absence de collision sur le parcours et les colliders du relief lors d’un détour.
+5. Profiler CPU/GPU, mémoire et FPS à 30 puis 60 sur appareil. La géométrie nouvelle est limitée, mais le coût du jeu complet et du HUD nécessite une mesure réelle.
+
+---
+
 ## Conclusion
 
 Le projet est un **prototype de vol jouable, organisé autour d'une scène avion**, avec commandes Android, télémétrie, HUD, parcours d'anneaux, carburant, crash et respawn. Il possède de bons points d'extension publics. La boucle de livraison de colis reste à développer : le décor et le modèle du colis existent, mais `DeliveryZone` est vide.

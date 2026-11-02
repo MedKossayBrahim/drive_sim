@@ -90,7 +90,7 @@ namespace Project.Plane
             Wire(touch,"editorFlightControls",null);
             var adaptive=hud.GetComponent<PlaneHUDLayout>();
             if(adaptive!=null){serialized=new SerializedObject(adaptive);serialized.FindProperty("mobileToolbarInstalled").boolValue=true;
-                serialized.FindProperty("touchToolbarSpace").floatValue=132;serialized.ApplyModifiedProperties();adaptive.RefreshLayout();}
+                serialized.FindProperty("touchToolbarSpace").floatValue=176;serialized.ApplyModifiedProperties();adaptive.RefreshLayout();}
             var duplicatePause=hud.transform.Find("SafeArea/Mission/Pause");if(duplicatePause!=null)duplicatePause.gameObject.SetActive(false);
             pause.GetComponent<Image>().color=new Color(0,0,0,.85f);
             foreach(Transform child in panel.Cast<Transform>().ToArray())Undo.DestroyObjectImmediate(child.gameObject);
@@ -118,11 +118,14 @@ namespace Project.Plane
             var invertButton=Button(invert,"Toggle","OFF",menu.TogglePitchInversion);invertButton.GetComponent<LayoutElement>().flexibleWidth=0;
             invertButton.GetComponent<LayoutElement>().preferredWidth=180;
             var fluidity=Row(content,"FrameRate","Fluidité");var fps30=Button(fluidity,"30","30",menu.Fps30);var fps60=Button(fluidity,"60","60",menu.Fps60);
+            var vibration=Row(content,"Vibration","Vibration");
+            var vibrationButton=Button(vibration,"Toggle","ON",menu.ToggleHaptics);
             var exit=Row(content,"Exit",null);Button(exit,"Restart","RECOMMENCER",menu.Restart);Button(exit,"Quit","QUITTER",menu.Quit);
             Wire(menu,"input",input,"hud",hud,"pausePanel",pause.gameObject,"firstSelected",resume.gameObject,"hudContent",hud.transform.Find("SafeArea").gameObject,
                 "panel",panel,"safeArea",pauseSafe,"mobile",mobile,"touchButton",tactile,"tiltButton",tilt,"easyButton",easy,"proButton",pro,
                 "fps30Button",fps30,"fps60Button",fps60,"invertButton",invertButton,"invertLabel",invertButton.GetComponentInChildren<TMP_Text>(),
                 "calibrateButton",calibrate.gameObject,"keyboardButton",keyboard.gameObject);
+            Wire(menu,"haptics",input.GetComponent<CrashHaptics>(),"hapticsButton",vibrationButton,"hapticsLabel",vibrationButton.GetComponentInChildren<TMP_Text>());
             // Le composant du départ garde son panneau ; les anciens libellés de pause n'ont plus de rôle.
             var launch=touch.GetComponent<PlaneMissionLaunch>();if(launch!=null)Wire(launch,"invertLabel",null,"assistanceLabel",null);
             InstallAutomaticConfiguration();
