@@ -112,3 +112,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# KitWright MCP config (contains access token)
+.vscode/mcp.json
+/.mcp.json

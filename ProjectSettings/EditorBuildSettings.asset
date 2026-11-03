@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/BoatRunner.unity
+    guid: e121c218efc33d648b89a214ccca27a5
   m_configObjects: {}
