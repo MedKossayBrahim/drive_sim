@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DriveSim.Menu;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -8,7 +9,7 @@ using UnityEngine.UI;
 
 namespace DriveSim.User
 {
-    // Ordre des écrans : inscription, connexion, biométrie, session prête pour l'équipe course.
+    // Ordre des écrans : inscription, connexion, biométrie, puis l'accueil du jeu.
     public sealed class AuthFlow : MonoBehaviour
     {
         static readonly Queue<string> Incoming = new Queue<string>();
@@ -16,10 +17,14 @@ namespace DriveSim.User
 
         AuthScreen _ui;
         AuthBackdrop _backdrop;
+        GameHub _hub;
         bool? _landscape;
         string _refresh;
         bool _registerMode;
         bool _busy;
+        bool _faceFromSettings;
+        bool _passwordOpen;
+        bool _faceOffer;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Bootstrap()
@@ -48,6 +53,9 @@ namespace DriveSim.User
             _backdrop = AuthBackdrop.Build();
             _ui = gameObject.AddComponent<AuthScreen>();
             _ui.Construct();
+            _hub = GameHub.Create();
+            _hub.BindLogout(() => { _ = Logout(); });
+            _hub.ConfigureFace(DeviceAuth.IsBiometricAvailable(), DeviceAuth.HasSavedToken(), OnFaceToggle);
             ApplyOrientation();
             EnsureEventSystem();
 
@@ -63,6 +71,12 @@ namespace DriveSim.User
             _ui.Password.onSubmit.AddListener(text => { _ = Submit(); });
 
             ShowCredentials(DeviceAuth.HasSavedToken());
+        }
+
+        void OnDestroy()
+        {
+            if (_hub != null)
+                Destroy(_hub.gameObject);
         }
 
         async void Start()
@@ -114,19 +128,32 @@ namespace DriveSim.User
                 : "Serveur prêt. Créez un compte ou connectez-vous.");
 
             if (saved && DeviceAuth.IsBiometricAvailable() && !Application.isEditor)
+            {
+                for (int i = 0; i < 30 && !Application.isFocused; i++)
+                    await System.Threading.Tasks.Task.Delay(100);
+                await System.Threading.Tasks.Task.Delay(400);
                 BeginLoad();
+            }
         }
 
         void ToggleMode()
         {
             if (_busy) return;
             _registerMode = !_registerMode;
+            _passwordOpen = false;
             ShowCredentials(DeviceAuth.HasSavedToken());
         }
 
         async System.Threading.Tasks.Task Submit()
         {
             if (_busy) return;
+            if (_faceOffer)
+            {
+                _passwordOpen = true;
+                ShowCredentials(DeviceAuth.HasSavedToken());
+                SetStatus("Entre l'e-mail et le mot de passe.");
+                return;
+            }
             var url = CurrentUrl();
             if (url == null) return;
 
@@ -172,10 +199,14 @@ namespace DriveSim.User
                 _refresh = result.RefreshToken;
                 _ui.Password.text = "";
                 AuthSession.Open(profile.Player, result.AccessToken);
-                if (DeviceAuth.IsBiometricAvailable() && !DeviceAuth.HasSavedToken())
+                if (DeviceAuth.IsBiometricAvailable()
+                    && !DeviceAuth.HasSavedToken()
+                    && PlayerPrefs.GetInt("drivesim.face.asked", 0) == 0)
                 {
+                    PlayerPrefs.SetInt("drivesim.face.asked", 1);
+                    PlayerPrefs.Save();
                     ShowEnable();
-                    SetStatus("Compte accepté par le serveur.");
+                    SetStatus("Compte accepté. Active Face ID, ou choisis Plus tard.");
                 }
                 else
                 {
@@ -195,6 +226,13 @@ namespace DriveSim.User
         void BeginLoad()
         {
             if (_busy) return;
+            if (!DeviceAuth.HasSavedToken())
+            {
+                _passwordOpen = true;
+                ShowCredentials(false);
+                SetStatus("Face ID n'est pas encore activé. Entre le mot de passe, puis active-le dans Réglages.", true);
+                return;
+            }
             if (Application.isEditor)
             {
                 ShowSim();
@@ -294,11 +332,12 @@ namespace DriveSim.User
         async System.Threading.Tasks.Task Logout()
         {
             if (_busy) return;
+            var keepFace = DeviceAuth.HasSavedToken();
             SetBusy(true);
             try
             {
                 var url = CurrentUrl();
-                if (url != null && !string.IsNullOrEmpty(_refresh))
+                if (!keepFace && url != null && !string.IsNullOrEmpty(_refresh))
                     await AuthApiClient.Logout(url, _refresh);
             }
             catch (Exception exception)
@@ -308,12 +347,16 @@ namespace DriveSim.User
             finally
             {
                 _refresh = null;
-                DeviceAuth.ClearToken();
+                if (!keepFace)
+                    DeviceAuth.ClearToken();
                 AuthSession.Close();
                 _registerMode = false;
+                _passwordOpen = false;
                 SetBusy(false);
-                ShowCredentials(false);
-                SetStatus("Vous êtes déconnecté de cet appareil.");
+                ShowCredentials(DeviceAuth.HasSavedToken());
+                SetStatus(keepFace
+                    ? "Déconnecté. Le bouton vert rouvre le compte avec Face ID."
+                    : "Vous êtes déconnecté de cet appareil.");
             }
         }
 
@@ -325,19 +368,26 @@ namespace DriveSim.User
 
             if (message == "save:ok")
             {
+                if (FinishFaceSetting(true, "Face ID activé sur cet appareil."))
+                    return;
                 FinishEnable(true, "Connexion biométrique activée sur cet appareil.");
                 return;
             }
             if (message == "save:cancel")
             {
-                FinishEnable(false, "Activation annulée. Le mot de passe reste disponible.");
+                if (FinishFaceSetting(false, "Activation annulée. Tu peux la reprendre dans Réglages."))
+                    return;
+                FinishEnable(false, "Activation annulée. Tu pourras l'activer dans Réglages.");
                 return;
             }
             if (message.StartsWith("save:error:"))
             {
+                var detail = message.Substring("save:error:".Length);
+                if (FinishFaceSetting(false, detail))
+                    return;
                 SetBusy(false);
                 ShowEnable();
-                SetStatus(message.Substring("save:error:".Length), true);
+                SetStatus(detail, true);
                 return;
             }
             if (message == "load:cancel")
@@ -376,15 +426,83 @@ namespace DriveSim.User
                 SetStatus(message);
         }
 
+        bool FinishFaceSetting(bool enabled, string message)
+        {
+            if (!_faceFromSettings)
+                return false;
+            _faceFromSettings = false;
+            SetBusy(false);
+            _hub.SetFace(enabled);
+            _hub.Notify(message);
+            return true;
+        }
+
+        void OnFaceToggle(bool enabled)
+        {
+            if (enabled)
+            {
+                if (_faceFromSettings)
+                    return;
+                if (string.IsNullOrEmpty(_refresh))
+                {
+                    _hub.SetFace(false);
+                    _hub.Notify("Reconnecte-toi, puis réactive Face ID dans Réglages.");
+                    return;
+                }
+                _faceFromSettings = true;
+                _hub.Notify("Confirme avec Face ID.");
+                try
+                {
+                    DeviceAuth.SaveToken(_refresh);
+                }
+                catch (Exception exception)
+                {
+                    _faceFromSettings = false;
+                    _hub.SetFace(false);
+                    _hub.Notify(exception.Message);
+                }
+                return;
+            }
+
+            _faceFromSettings = false;
+            DeviceAuth.ClearToken();
+            _hub.Notify("Face ID désactivé sur cet appareil.");
+        }
+
         void ShowCredentials(bool hasSavedToken)
         {
-            SetForm(true);
-            _ui.NameRow.SetActive(_registerMode);
-            _ui.PrimaryLabel.text = _registerMode ? "CRÉER LE COMPTE" : "SE CONNECTER";
-            _ui.SwitchLabel.text = _registerMode ? "J'AI DÉJÀ UN COMPTE" : "CRÉER UN COMPTE";
-            var biometric = hasSavedToken && DeviceAuth.IsBiometricAvailable();
-            _ui.BiometricButton.gameObject.SetActive(biometric);
-            _ui.BiometricLabel.text = Application.isEditor ? "SIMULER LA BIOMÉTRIE" : "CONNEXION BIOMÉTRIQUE";
+            if (_hub != null)
+                _hub.Close();
+            _ui.SetChrome(true);
+            if (_backdrop != null)
+                _backdrop.gameObject.SetActive(true);
+            _faceOffer = !_registerMode && !_passwordOpen && DeviceAuth.IsBiometricAvailable();
+            if (_faceOffer)
+            {
+                SetForm(false);
+                _ui.BiometricButton.gameObject.SetActive(true);
+                _ui.BiometricLabel.text = Application.isEditor ? "SIMULER FACE ID" : "FACE ID";
+                _ui.PrimaryButton.gameObject.SetActive(true);
+                _ui.PrimaryLabel.text = "MOT DE PASSE";
+                _ui.SwitchButton.gameObject.SetActive(true);
+                _ui.SwitchLabel.text = "CRÉER UN COMPTE";
+                _ui.SetPage("CONNEXION", "Le bouton vert ouvre Face ID. Le jaune sert si tu préfères le mot de passe.");
+            }
+            else
+            {
+                SetForm(true);
+                _ui.NameRow.SetActive(_registerMode);
+                _ui.PrimaryLabel.text = _registerMode ? "CRÉER LE COMPTE" : "SE CONNECTER";
+                _ui.SwitchLabel.text = _registerMode ? "J'AI DÉJÀ UN COMPTE" : "CRÉER UN COMPTE";
+                _ui.SetPage(
+                    _registerMode ? "INSCRIPTION" : "CONNEXION",
+                    _registerMode
+                        ? "Choisis un pseudo. Le bouton jaune crée le pilote."
+                        : "Entre ton e-mail. Le bouton jaune ouvre le garage.");
+                var biometric = !_registerMode && hasSavedToken && DeviceAuth.IsBiometricAvailable();
+                _ui.BiometricButton.gameObject.SetActive(biometric);
+                _ui.BiometricLabel.text = Application.isEditor ? "SIMULER FACE ID" : "FACE ID";
+            }
             _ui.SimPanel.SetActive(false);
             _ui.EnablePanel.SetActive(false);
             _ui.HomePanel.SetActive(false);
@@ -393,8 +511,14 @@ namespace DriveSim.User
 
         void ShowSim()
         {
+            if (_hub != null)
+                _hub.Close();
+            _ui.SetChrome(true);
+            if (_backdrop != null)
+                _backdrop.gameObject.SetActive(true);
             SetForm(false);
             _ui.BiometricButton.gameObject.SetActive(false);
+            _ui.SetPage("VISAGE", "L'éditeur simule le téléphone. Choisis un résultat.");
             _ui.SimPanel.SetActive(true);
             _ui.EnablePanel.SetActive(false);
             _ui.HomePanel.SetActive(false);
@@ -403,8 +527,14 @@ namespace DriveSim.User
 
         void ShowEnable()
         {
+            if (_hub != null)
+                _hub.Close();
+            _ui.SetChrome(true);
+            if (_backdrop != null)
+                _backdrop.gameObject.SetActive(true);
             SetForm(false);
             _ui.BiometricButton.gameObject.SetActive(false);
+            _ui.SetPage("VISAGE", "Active Face ID une seule fois. Tu pourras le couper dans Réglages.");
             _ui.SimPanel.SetActive(false);
             _ui.EnablePanel.SetActive(true);
             _ui.HomePanel.SetActive(false);
@@ -417,17 +547,17 @@ namespace DriveSim.User
             _ui.BiometricButton.gameObject.SetActive(false);
             _ui.SimPanel.SetActive(false);
             _ui.EnablePanel.SetActive(false);
-            _ui.HomePanel.SetActive(true);
-            var player = AuthSession.Player;
-            _ui.Hello.text = player == null ? "Connecté" : "Bonjour " + player.DisplayName;
+            _ui.HomePanel.SetActive(false);
+            _ui.SetChrome(false);
             if (_backdrop != null)
-                _backdrop.Celebrate();
-            _ui.Details.text = player == null
-                ? ""
-                : "E-mail : " + player.Email + "\nIdentifiant : " + player.Id
-                  + "\n\nSession acceptée par le serveur.\nL'équipe course utilise AuthSession.Player.";
-            SetStatus(message);
-            Rebuild();
+                _backdrop.gameObject.SetActive(false);
+            var player = AuthSession.Player;
+            _hub.SetFace(DeviceAuth.HasSavedToken());
+            _hub.Open(
+                player == null ? "Pilote" : player.DisplayName,
+                player == null ? "" : player.Email,
+                player == null ? "local" : player.Id,
+                message);
         }
 
         void SetForm(bool visible)
@@ -473,6 +603,8 @@ namespace DriveSim.User
             var focus = _ui.ApplyLayout(landscape);
             if (_backdrop != null)
                 _backdrop.SetFocus(focus);
+            if (_hub != null)
+                _hub.ApplyLayout(landscape);
             Rebuild();
         }
 

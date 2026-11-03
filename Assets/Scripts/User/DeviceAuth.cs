@@ -73,7 +73,7 @@ namespace DriveSim.User
         public static void LoadToken()
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            Biometric_LoadToken("Deverrouillez Drive Sim pour jouer");
+            Biometric_LoadToken("Déverrouillez Drive Sim avec Face ID");
 #elif UNITY_ANDROID && !UNITY_EDITOR
             using (var plugin = new AndroidJavaClass("com.drivesim.auth.BiometricPlugin"))
             using (var activity = CurrentActivity())

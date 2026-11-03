@@ -58,6 +58,12 @@ namespace DriveSim.User
             return Send(baseUrl, "/users/me", "GET", null, accessToken);
         }
 
+        public static Task<AuthResult> UpdateProgress(string baseUrl, string accessToken, int coins, int level, int score)
+        {
+            var body = JsonUtility.ToJson(new ProgressBody { coins = coins, level = level, score = score });
+            return Send(baseUrl, "/users/progress", "PUT", body, accessToken);
+        }
+
         static async Task<AuthResult> Send(string baseUrl, string path, string method, string json, string accessToken)
         {
             var url = baseUrl.Trim().TrimEnd('/') + path;
@@ -97,7 +103,7 @@ namespace DriveSim.User
                 return new AuthResult { Ok = request.result == UnityWebRequest.Result.Success };
 
             var unauthorized = request.responseCode == 401;
-            if (path == "/users/me")
+            if (path == "/users/me" || path == "/users/progress")
             {
                 var me = string.IsNullOrEmpty(body) ? null : JsonUtility.FromJson<MeBody>(body);
                 if (request.result == UnityWebRequest.Result.Success && me != null && me.user != null && !string.IsNullOrEmpty(me.user.id))
@@ -109,7 +115,7 @@ namespace DriveSim.User
                         Player = ToProfile(me.user)
                     };
                 }
-                return Fail(ReadError(me != null ? me.error : null, "Profil indisponible."), unauthorized);
+                return Fail(ReadError(me != null ? me.error : null, path == "/users/progress" ? "Progression non enregistrée." : "Profil indisponible."), unauthorized);
             }
 
             var parsed = string.IsNullOrEmpty(body) ? null : JsonUtility.FromJson<TokenBody>(body);
@@ -133,7 +139,7 @@ namespace DriveSim.User
         static PlayerProfile ToProfile(UserBody user)
         {
             if (user == null) return null;
-            return new PlayerProfile(user.id, user.email, user.displayName);
+            return new PlayerProfile(user.id, user.email, user.displayName, user.coins, Math.Max(1, user.level), user.score);
         }
 
         static string ReadError(string error, string fallback)
@@ -149,7 +155,16 @@ namespace DriveSim.User
         [Serializable] class LoginBody { public string email; public string password; }
         [Serializable] class RegisterBody { public string email; public string password; public string displayName; }
         [Serializable] class RefreshBody { public string refreshToken; }
-        [Serializable] class UserBody { public string id; public string email; public string displayName; }
+        [Serializable] class ProgressBody { public int coins; public int level; public int score; }
+        [Serializable] class UserBody
+        {
+            public string id;
+            public string email;
+            public string displayName;
+            public int coins;
+            public int level;
+            public int score;
+        }
         [Serializable] class TokenBody { public string accessToken; public string refreshToken; public UserBody user; public string error; }
         [Serializable] class MeBody { public UserBody user; public string error; }
         [Serializable] class HealthBody { public bool ok; }

@@ -12,12 +12,13 @@ Unity **6000.6.0f1**. Le rendu est l’Universal Render Pipeline.
 |---|---|
 | Compte joueur : inscription, connexion, biométrie, déconnexion | En place |
 | Garage 3D derrière l’écran de compte | En place |
+| Accueil, missions, niveaux, boutique, succès | En place |
 | Serveur de comptes (`Backend`) | En place |
-| Course : véhicule, piste, commandes, classement | À faire par le reste de l’équipe |
+| Course : véhicule, piste, commandes | À faire par le reste de l’équipe |
 
 L’écran de compte se construit tout seul au lancement. Il n’y a pas de scène « Login » à remplir à la main. La seule scène du projet est `Assets/Scenes/SampleScene.unity` (caméra, lumière, volume). Dans Cursor, les fichiers `.unity` et `.meta` sont masqués par `.vscode/settings.json`. Ils sont visibles dans Unity et dans le Finder.
 
-Quand l’écran affiche « Bonjour », le joueur est connecté. La course peut alors lire son profil. Elle n’appelle pas Face ID.
+Quand l’accueil du jeu s’affiche, le joueur est connecté. La course peut alors lire son profil. Elle n’appelle pas Face ID.
 
 ## Lancer le projet
 
@@ -60,9 +61,9 @@ L’éditeur Unity ne montre pas Face ID. Les boutons **Simuler la biométrie**,
 1. Onglet **Game**, puis **Play**.
 2. **Créer un compte**. Exemple : pseudo `Pilote`, e-mail `pilote@esprit.tn`, mot de passe `secret123`.
 3. **Créer le compte**, puis **Activer**.
-4. L’écran affiche « Bonjour Pilote ». Le terminal montre `POST /auth/register` puis `GET /users/me`.
+4. L’accueil s’affiche avec le pseudo. Le terminal montre `POST /auth/register` puis `GET /users/me`.
 5. Arrêter Play, le relancer, **Simuler la biométrie**, puis **Biométrie réussie**. La session revient sans mot de passe.
-6. **Se déconnecter**.
+6. **Réglages**, puis **Se déconnecter**.
 
 `200` dans le terminal signifie que le serveur a accepté. `401` signifie un refus (mot de passe ou session).
 
@@ -91,14 +92,16 @@ public class ExempleCourse : MonoBehaviour
 
 | Accès | Usage |
 |---|---|
-| `AuthSession.IsSignedIn` | Vrai quand l’écran « Bonjour » est atteint |
+| `AuthSession.IsSignedIn` | Vrai quand l’accueil du jeu est atteint |
 | `AuthSession.Player.Id` | Identifiant stable, pour une sauvegarde ou un classement |
 | `AuthSession.Player.DisplayName` | Pseudo affiché |
 | `AuthSession.Player.Email` | E-mail du compte |
 | `AuthSession.AccessToken` | Jeton à envoyer au serveur pour une future requête protégée |
 | `AuthSession.SignedIn` / `SignedOut` | Événements de connexion et de déconnexion |
 
-Les scripts du compte sont dans `Assets/Scripts/User`. Les nouveaux scripts de course peuvent vivre à côté, dans un autre dossier sous `Assets/Scripts`.
+Les scripts du compte sont dans `Assets/Scripts/User`. Le menu est dans `Assets/Scripts/Menu`.
+
+Pour remplacer la course de démonstration, écouter `GameHub.PlayRequested` (mode, niveau). Le menu se cache. À la fin, appeler `GameHub.ReportResult(étoiles, score, secondes)`. Les modes sont 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash. Les niveaux vont de 1 à 15. Zéro étoile abandonne la course.
 
 ## Installer sur un téléphone
 
@@ -129,14 +132,14 @@ Face ID ne s’affiche que dans l’application installée sur l’iPhone, ou da
 9. Triangle **Run** de Xcode.
 10. Si l’iPhone bloque l’ouverture : **Réglages > Général > VPN et gestion de l’appareil**, faire confiance à l’identifiant Apple, puis ouvrir l’icône.
 
-Fermer l’application et la rouvrir : Face ID doit ramener l’écran « Bonjour », et le terminal doit recevoir `POST /auth/refresh`.
+Fermer l’application et la rouvrir : Face ID doit ramener l’accueil, et le terminal doit recevoir `POST /auth/refresh`.
 
 Simulateur : **Features > Face ID > Enrolled**, puis **Matching Face** au moment de la demande.
 
 ## Démonstration
 
 1. Le terminal du serveur est ouvert.
-2. Inscription sur le téléphone, puis « Bonjour » avec le pseudo.
+2. Inscription sur le téléphone, puis l’accueil avec le pseudo.
 3. Fermer l’application et la rouvrir : Face ID ou biométrie Android, sans mot de passe.
 4. Montrer `Backend/data/users.json` : compte et jetons, aucune donnée biométrique.
 5. Refuser la biométrie, puis se connecter avec le mot de passe.
@@ -155,6 +158,8 @@ Le capteur vérifie le visage sur l’appareil. Le serveur vérifie le jeton du 
 | `Assets/Scripts/User/AuthScreen.cs` | Carte, champs et boutons. |
 | `Assets/Scripts/User/AuthBackdrop.cs` | Garage 3D : voiture, plateau, pistes. |
 | `Assets/Scripts/User/AuthFlow.cs` | Ordre des écrans. |
+| `Assets/Scripts/Menu/GameHub.cs` | Accueil, missions, niveaux et écran de gains. |
+| `Assets/Scripts/Menu/GarageProgress.cs` | Pièces, étoiles et niveaux débloqués. |
 | `Assets/Scripts/User/DeviceAuth.cs` | Face ID, biométrie Android, ou simulation dans l’éditeur. |
 | `Assets/Plugins/iOS/BiometricAuth.mm` | Face ID et trousseau iPhone. |
 | `Assets/Plugins/Android/.../BiometricPlugin.java` | Fenêtre biométrique Android. |

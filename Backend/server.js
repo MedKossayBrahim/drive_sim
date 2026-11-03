@@ -37,8 +37,26 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function normalizeUser(user) {
+  if (typeof user.coins !== "number" || !Number.isFinite(user.coins)) user.coins = 0;
+  if (typeof user.level !== "number" || !Number.isFinite(user.level)) user.level = 1;
+  if (typeof user.score !== "number" || !Number.isFinite(user.score)) user.score = 0;
+  user.coins = Math.max(0, Math.min(Math.floor(user.coins), 999999999));
+  user.level = Math.max(1, Math.min(Math.floor(user.level), 15));
+  user.score = Math.max(0, Math.min(Math.floor(user.score), 999999999));
+  return user;
+}
+
 function publicUser(user) {
-  return { id: user.id, email: user.email, displayName: user.displayName };
+  const safe = normalizeUser(user);
+  return {
+    id: safe.id,
+    email: safe.email,
+    displayName: safe.displayName,
+    coins: safe.coins,
+    level: safe.level,
+    score: safe.score,
+  };
 }
 
 function normalizeEmail(email) {
@@ -112,13 +130,16 @@ app.post("/auth/register", async (request, response) => {
     return response.status(409).json({ error: "Un compte existe déjà avec cet e-mail." });
   }
 
-  const user = {
+  const user = normalizeUser({
     id: crypto.randomUUID(),
     email,
     displayName,
     passwordHash: await bcrypt.hash(password, 10),
     refreshTokens: [],
-  };
+    coins: 0,
+    level: 1,
+    score: 0,
+  });
   const tokens = issueTokens(user);
   db.users.push(user);
   saveDb(db);
@@ -188,6 +209,36 @@ app.get("/users/me", (request, response) => {
     const db = loadDb();
     const user = db.users.find((item) => item.id === payload.sub);
     if (!user) return response.status(401).json({ error: "Compte introuvable." });
+    normalizeUser(user);
+    saveDb(db);
+    response.json({ user: publicUser(user) });
+  } catch {
+    response.status(401).json({ error: "Session invalide. Reconnectez-vous." });
+  }
+});
+
+app.put("/users/progress", (request, response) => {
+  const token = readBearer(request);
+  if (!token) return response.status(401).json({ error: "Connexion requise." });
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const db = loadDb();
+    const user = db.users.find((item) => item.id === payload.sub);
+    if (!user) return response.status(401).json({ error: "Compte introuvable." });
+
+    const coins = Number(request.body.coins);
+    const level = Number(request.body.level);
+    const score = Number(request.body.score);
+    if (![coins, level, score].every((value) => Number.isFinite(value))) {
+      return response.status(400).json({ error: "coins, level et score doivent être des nombres." });
+    }
+
+    normalizeUser(user);
+    user.coins = Math.max(user.coins, Math.floor(coins));
+    user.level = Math.max(user.level, Math.floor(level));
+    user.score = Math.max(user.score, Math.floor(score));
+    normalizeUser(user);
+    saveDb(db);
     response.json({ user: publicUser(user) });
   } catch {
     response.status(401).json({ error: "Session invalide. Reconnectez-vous." });

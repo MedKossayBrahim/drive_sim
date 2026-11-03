@@ -9,7 +9,7 @@ namespace DriveSim.User
     {
         const float IdleSpin = 22f;
 
-        static readonly Color Night = new Color(0.03f, 0.07f, 0.18f);
+        static readonly Color Night = new Color(0.012f, 0.03f, 0.06f);
         static readonly Color Coral = new Color(1f, 0.36f, 0.3f);
         static readonly Color Mint = new Color(0.28f, 0.9f, 0.76f);
         static readonly Color Violet = new Color(0.62f, 0.36f, 1f);

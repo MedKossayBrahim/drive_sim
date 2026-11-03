@@ -8,7 +8,7 @@ namespace DriveSim.User
     {
         public const int Port = 5080;
         public const string EditorServerUrl = "http://localhost:5080";
-        public const string PhoneServerUrl = "http://192.168.10.58:5080";
+        public const string PhoneServerUrl = "http://172.20.10.3:5080";
 
         public static string DefaultServerUrl
         {
