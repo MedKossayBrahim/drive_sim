@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kitwright": {
+      "url": "http://127.0.0.1:9645/p/88a9dba4/t/3d46c6162b3ebfb924242906f98cf372/",
+      "type": "http"
+    }
+  }
+}
