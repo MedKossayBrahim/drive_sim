@@ -308,17 +308,19 @@ MonoBehaviour:
   useMobileDefault: 1
   throttleChangeSpeed: 0.35
   axisSmoothing: 8
-  touchAxisSmoothing: 14
-  touchSensitivity: 1.2
-  touchResponseExponent: 0.85
+  touchAxisSmoothing: 16
+  touchSensitivity: 1
+  touchResponseExponent: 1.1
+  touchLateralPitchReduction: 0.7
   useGyroscope: 0
-  tiltDeadZoneDegrees: 3
+  tiltDeadZoneDegrees: 4
   tiltSensitivity: 1
-  maximumTiltDegrees: 35
+  maximumTiltDegrees: 40
+  tiltResponseExponent: 1.5
   invertPitch: 0
   simulateTiltWithMouseInEditor: 0
   mouseDegreesPerPixel: 0.1
-  tiltAxisSmoothing: 16
+  tiltAxisSmoothing: 12
   requireMobileTakeoffConfirmation: 1
   onModeChanged:
     m_PersistentCalls:

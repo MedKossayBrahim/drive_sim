@@ -83,7 +83,7 @@ namespace Project.Plane
             float t=delta.sqrMagnitude>.001f?Mathf.Clamp01(Vector3.Dot(p-a,delta)/delta.sqrMagnitude):0f;
             return Vector3.Distance(p,a+delta*t);
         }
-        private static Mesh CreateMesh(float radius,float height,int seed)
+        internal static Mesh CreateMesh(float radius,float height,int seed)
         {
             const int sides=12,levels=7;var random=new System.Random(seed);var rings=new Vector3[levels,sides];
             var vertices=new List<Vector3>();var colors=new List<Color>();

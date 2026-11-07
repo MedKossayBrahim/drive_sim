@@ -97,31 +97,62 @@ namespace Project.Plane
             horizon.localRotation = Quaternion.Euler(0f, 0f, sensors.RollDegrees);
             horizon.anchoredPosition = new Vector2(0f, -Mathf.Clamp(sensors.PitchDegrees, -90f, 90f) * pitchPixelsPerDegree);
             compassTape.anchoredPosition = new Vector2(-sensors.HeadingDegrees * compassPixelsPerDegree, 0f);
-            bool landing=landingMission!=null&&landingMission.CanLand;
-            navigationArrow.gameObject.SetActive(landing||sensors.HasNextCheckpoint);
-            if(landing)
+            UpdateNavigation();
+            if (checkpoints == null) { course.text = "CHRONO -- | SCORE --"; RenderBoundaryMessage(); return; }
+            float elapsed = checkpoints.ElapsedTime;
+            course.text = $"{(int)elapsed / 60:00}:{(int)elapsed % 60:00}  |  SCORE {(globalScore != null ? globalScore.Score : checkpoints.Score)}\nANNEAUX {checkpoints.PassedCount}/{checkpoints.Checkpoints.Count}";
+            if (checkpoints.IsComplete && !previousComplete)
+                ShowMessage(landingMission == null ? "PARCOURS TERMINÉ !"
+                    : landingMission.NeedsCoins ? "ANNEAUX TERMINÉS · CONTINUEZ LA COLLECTE"
+                    : "ANNEAUX TERMINÉS · CAP SUR LA PISTE", 6f);
+            else if (checkpoints.PassedCount > previousPassed) ShowMessage("ANNEAU VALIDE", 2f);
+            previousPassed = checkpoints.PassedCount; previousComplete = checkpoints.IsComplete;
+            RenderBoundaryMessage();
+        }
+
+        private void UpdateNavigation()
+        {
+            if (landingMission != null && landingMission.CanLand)
             {
-                Vector3 delta=landingMission.Arrival.AimPoint-sensors.transform.position;
-                float bearing=Mathf.Repeat(Mathf.Atan2(delta.x,delta.z)*Mathf.Rad2Deg,360f);
-                navigationArrow.localRotation=Quaternion.Euler(0,0,-Mathf.DeltaAngle(sensors.HeadingDegrees,bearing));
-                navigation.text=$"AÉROPORT D’ARRIVÉE\n{delta.magnitude:0} m · CAP {bearing:000}";
+                var point = landingMission.Arrival.GetApproachGuidance(out _, out _);
+                GuideTo(point, "AXE DE LA PISTE");
+            }
+            else if (landingMission != null && landingMission.TryGetCoinTarget(out Vector3 coin))
+            {
+                float height = coin.y - sensors.transform.position.y;
+                string label = height > 10f ? $"PIÈCE · MONTEZ {height:0} m"
+                    : height < -10f ? $"PIÈCE · DESCENDEZ {-height:0} m" : "PIÈCE ACCESSIBLE";
+                GuideTo(coin, label);
+            }
+            else if (landingMission != null && landingMission.NeedsCoins)
+            {
+                navigationArrow.gameObject.SetActive(false);
+                navigation.text = "PIÈCES HORS DE VUE\nCONTOURNEZ LE RELIEF";
             }
             else if (sensors.HasNextCheckpoint)
             {
+                navigationArrow.gameObject.SetActive(true);
                 navigationArrow.localRotation = Quaternion.Euler(0f, 0f, -sensors.RelativeBearingToNextCheckpoint);
                 string ringName = sensors.NextCheckpoint.name == "Trigger" && sensors.NextCheckpoint.transform.parent != null ?
                     sensors.NextCheckpoint.transform.parent.name : sensors.NextCheckpoint.name;
                 navigation.text = $"{ringName.Replace("Ring_", "ANNEAU ")}\n{sensors.DistanceToNextCheckpoint:0} m  |  CAP {sensors.BearingToNextCheckpoint:000}";
             }
-            else navigation.text = checkpoints != null && checkpoints.IsComplete ? "PARCOURS TERMINE" : "AUCUN ANNEAU";
-            if (checkpoints == null) { course.text = "CHRONO -- | SCORE --"; RenderBoundaryMessage(); return; }
-            float elapsed = checkpoints.ElapsedTime;
-            course.text = $"{(int)elapsed / 60:00}:{(int)elapsed % 60:00}  |  SCORE {(globalScore != null ? globalScore.Score : checkpoints.Score)}\nANNEAUX {checkpoints.PassedCount}/{checkpoints.Checkpoints.Count}";
-            if (checkpoints.IsComplete && !previousComplete) ShowMessage(landingMission!=null?"ANNEAUX TERMINÉS — OBJECTIF : ATTERRIR":"PARCOURS TERMINE !", 6f);
-            else if (checkpoints.PassedCount > previousPassed) ShowMessage("ANNEAU VALIDE", 2f);
-            previousPassed = checkpoints.PassedCount; previousComplete = checkpoints.IsComplete;
-            RenderBoundaryMessage();
+            else
+            {
+                navigationArrow.gameObject.SetActive(false);
+                navigation.text = checkpoints != null && checkpoints.IsComplete ? "PARCOURS TERMINÉ" : "AUCUN ANNEAU";
+            }
         }
+
+        private void GuideTo(Vector3 point, string label)
+        {
+            Vector3 delta = point - sensors.transform.position;
+            float bearing = Mathf.Repeat(Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg, 360f);
+            navigationArrow.gameObject.SetActive(true);
+            navigationArrow.localRotation = Quaternion.Euler(0f, 0f, -Mathf.DeltaAngle(sensors.HeadingDegrees, bearing));
+            navigation.text = $"{label}\n{delta.magnitude:0} m · CAP {bearing:000}";
+        }
+
         private void RenderBoundaryMessage()
         {
             if(message==null)return;

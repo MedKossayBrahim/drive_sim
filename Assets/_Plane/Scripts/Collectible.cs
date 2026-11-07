@@ -18,6 +18,7 @@ namespace Project.Plane
         [SerializeField, Min(.05f)] private float pickupDuration = .2f;
         [SerializeField] private AudioSource pickupAudio;
         private SphereCollider trigger;
+        private FlightPowerUps bonuses;
         private Vector3 basePosition, baseScale;
         private float collectedAt;
         public bool IsCollected { get; private set; }
@@ -36,8 +37,8 @@ namespace Project.Plane
             collider.excludeLayers = ~mask;
             collider.layerOverridePriority = 100;
         }
-        public void Bind(ScoreManager owner, PlaneInput input, PlaneHealth aircraftHealth)
-        { score = owner; aircraft = input; health = aircraftHealth; }
+        public void Bind(ScoreManager owner, PlaneInput input, PlaneHealth aircraftHealth, FlightPowerUps powerUps = null)
+        { score = owner; aircraft = input; health = aircraftHealth; bonuses = powerUps; }
         private void Update()
         {
             if (visual == null) return;
@@ -62,7 +63,8 @@ namespace Project.Plane
             IsCollected = true;
             collectedAt = Time.time;
             trigger.enabled = false;
-            score.CollectCoin(value);
+            int multiplier = bonuses != null ? bonuses.CoinMultiplier : 1;
+            score.CollectCoin((int)System.Math.Min(int.MaxValue, (long)value * multiplier));
             if (pickupAudio != null && pickupAudio.clip != null) pickupAudio.Play();
             return true;
         }

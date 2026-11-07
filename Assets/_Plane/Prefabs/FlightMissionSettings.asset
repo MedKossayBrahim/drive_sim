@@ -18,11 +18,10 @@ MonoBehaviour:
   arrivalCenter: {x: 0, y: 0, z: 3000}
   runwayWidth: 48
   runwayLength: 900
-  maximumStoppedSpeed: 5
   maximumVerticalSpeed: 2
   maximumBank: 12
   maximumHeadingError: 20
-  stoppedHoldSeconds: 2
+  landingContactSeconds: 0.6
   maximumGroundGap: 0.35
   wheelBrakeAcceleration: 8
   boundaryFootRadius: 3600

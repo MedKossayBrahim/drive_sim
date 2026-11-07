@@ -34,6 +34,14 @@ namespace Project.Plane
             if (health == null) health = GetComponent<PlaneHealth>();
             if (fallDetector == null) fallDetector = GetComponent<FallCrashDetector>();
             if (input == null) input = GetComponent<PlaneInput>();
+            // Réactive une fois la vibration après l'intégration (ancienne préférence OFF).
+            const string migrated = PreferenceKey + ".ResetOn";
+            if (!PlayerPrefs.HasKey(migrated))
+            {
+                PlayerPrefs.SetInt(PreferenceKey, 1);
+                PlayerPrefs.SetInt(migrated, 1);
+                PlayerPrefs.Save();
+            }
             HapticsEnabled = PlayerPrefs.GetInt(PreferenceKey, 1) != 0;
         }
         private void OnEnable()
@@ -89,7 +97,11 @@ namespace Project.Plane
         }
         private void Pulse(int milliseconds, int amplitude)
         {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_EDITOR
+            // Pas de moteur haptique dans l'éditeur : on enregistre seulement l'état actif.
+            outputActive = true;
+            return;
+#elif UNITY_ANDROID
             try
             {
                 PrepareAndroid();
@@ -110,6 +122,10 @@ namespace Project.Plane
                 if (!warned) { warned = true; Debug.LogWarning("[Sky Courier] Vibration Android indisponible : " + error.Message, this); }
                 Handheld.Vibrate(); outputActive = true;
             }
+#else
+            // iOS et autres plateformes : vibration système courte.
+            Handheld.Vibrate();
+            outputActive = true;
 #endif
         }
         private void StopOutput()

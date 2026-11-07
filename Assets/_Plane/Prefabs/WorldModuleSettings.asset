@@ -16,8 +16,8 @@ MonoBehaviour:
   coinSpacing: 65
   bonusCoinsPerRing: 3
   coinValue: 25
-  pickupRadius: 4
-  coinVisualRadius: 2.8
+  pickupRadius: 20
+  coinVisualRadius: 8
   mountainCount: 28
   innerRadius: 1800
   outerRadius: 3500

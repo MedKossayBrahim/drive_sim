@@ -39,20 +39,24 @@ MonoBehaviour:
   engineResponseTime: 1
   glideSinkResponse: 1
   throttleCutoff: 0.01
-  tiltBankAngle: 35
-  tiltPitchAngle: 25
+  tiltBankAngle: 45
+  tiltPitchAngle: 20
   tiltRollResponse: 12
   tiltPitchResponse: 8
   tiltAngularDamping: 5
   bankToTurn: 1
   coordinatedTurnResponse: 3
-  touchBankAngle: 65
-  touchPitchAngle: 30
-  touchRollResponse: 16
+  touchBankAngle: 35
+  touchPitchAngle: 22
+  touchRollResponse: 26
+  touchHeadingRate: 26
+  touchHeadingResponse: 12
+  touchTrackResponse: 5
+  touchLateralAcceleration: 25
   touchPitchResponse: 10
-  touchAngularDamping: 4.5
-  touchTurnMultiplier: 1.6
-  touchCruiseSpeed: 80
+  touchAngularDamping: 5.5
+  touchTurnMultiplier: 1.45
+  touchCruiseSpeed: 60
   touchFlightPathResponse: 1.8
   easyAssistance: 1.2
   proAssistance: 0.18

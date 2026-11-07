@@ -16,9 +16,9 @@ namespace Project.Plane
             try
             {
                 var serialized=new SerializedObject(root.GetComponent<PlaneInput>());
-                serialized.FindProperty("touchAxisSmoothing").floatValue=14f;
-                serialized.FindProperty("touchSensitivity").floatValue=1.2f;
-                serialized.FindProperty("touchResponseExponent").floatValue=.85f;
+                serialized.FindProperty("touchAxisSmoothing").floatValue=16f;
+                serialized.FindProperty("touchSensitivity").floatValue=1f;
+                serialized.FindProperty("touchResponseExponent").floatValue=1.1f;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 PrefabUtility.SaveAsPrefabAsset(root,path);
             }
@@ -27,7 +27,7 @@ namespace Project.Plane
             var settings=new SerializedObject(joystick);settings.FindProperty("radius").floatValue=85f;
             settings.FindProperty("deadZone").floatValue=.06f;settings.ApplyModifiedPropertiesWithoutUndo();
             ModuleSceneUtility.Save(scene);
-            Debug.Log("[Sky Courier] Joystick réactif : maintien d'angle, virages coordonnés à 65°, retour à plat et demi-tours sans lacet manuel.");
+            Debug.Log("[Sky Courier] Joystick réactif : cap direct et retour à plat, réglages de virage dans PlaneSettings.");
         }
     }
 }

@@ -30,10 +30,14 @@ namespace Project.Plane
         private GameObject previousSelection;
         private CursorLockMode previousCursorLock;
         private bool previousCursorVisible;
+        private RectTransform pinnedHeader;
+        private ScrollRect settingsScroll;
+        private const float HeaderHeight = 184f;
         public int FrameRate => frameRate;
         private void Start()
         {
             if (input == null) return;
+            PinResumeButton();
             // Awake des contrôles/capteurs est terminé avant de restaurer les choix du joueur.
             if (PlayerPrefs.HasKey(Pref+"ControlMode"))
             {
@@ -58,15 +62,53 @@ namespace Project.Plane
             {
                 previousCursorLock=Cursor.lockState;previousCursorVisible=Cursor.visible;capturedCursor=true;
                 Cursor.lockState=CursorLockMode.None;Cursor.visible=!Application.isMobilePlatform;
+                if (settingsScroll != null)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    settingsScroll.StopMovement();
+                    settingsScroll.verticalNormalizedPosition = 1f;
+                }
                 if(EventSystem.current!=null){previousSelection=EventSystem.current.currentSelectedGameObject;EventSystem.current.SetSelectedGameObject(firstSelected);}
             }
             else if(!paused&&wasPaused)RestoreCursor();
             if(paused)
             {
                 if(panel!=null&&safeArea!=null)panel.sizeDelta=new Vector2(Mathf.Min(1160f,safeArea.rect.width-40f),Mathf.Min(800f,safeArea.rect.height-32f));
+                if (pinnedHeader != null)
+                {
+                    pinnedHeader.anchoredPosition = panel.anchoredPosition + Vector2.up * (panel.rect.height * .5f);
+                    pinnedHeader.sizeDelta = new Vector2(panel.rect.width, HeaderHeight);
+                }
                 RefreshChoices();
             }
             wasPaused=paused;
+        }
+        private void PinResumeButton()
+        {
+            if (panel == null || firstSelected == null) return;
+            var scroll = panel.GetComponent<ScrollRect>();
+            if (scroll == null || scroll.content == null || scroll.viewport == null ||
+                firstSelected.transform.parent != scroll.content || firstSelected.transform is not RectTransform resume) return;
+
+            settingsScroll = scroll;
+            // Le bouton doit être hors de la hiérarchie du ScrollRect pour qu'un glissement ne vole pas le clic.
+            pinnedHeader = new GameObject("FixedPauseHeader", typeof(RectTransform)).GetComponent<RectTransform>();
+            pinnedHeader.SetParent(panel.parent, false);
+            pinnedHeader.anchorMin = pinnedHeader.anchorMax = panel.anchorMin;
+            pinnedHeader.pivot = new Vector2(.5f, 1f);
+            var title = scroll.content.Find("Title") as RectTransform;
+            if (title != null) PlaceHeaderItem(title, 24f, 48f);
+            PlaceHeaderItem(resume, 88f, 96f);
+            scroll.viewport.offsetMax = new Vector2(scroll.viewport.offsetMax.x, -HeaderHeight - 12f);
+        }
+
+        private void PlaceHeaderItem(RectTransform item, float top, float height)
+        {
+            item.SetParent(pinnedHeader, false);
+            item.anchorMin = new Vector2(0f, 1f);
+            item.anchorMax = Vector2.one;
+            item.offsetMin = new Vector2(32f, -top - height);
+            item.offsetMax = new Vector2(-32f, -top);
         }
         private void RefreshChoices()
         {
@@ -147,6 +189,7 @@ namespace Project.Plane
 #if !UNITY_EDITOR
             if(!Application.CanStreamedLevelBeLoaded(scene.path)){hud?.ShowMessage("AJOUTER PLANE_SCENE AU BUILD PROFILE",4f);restarting=false;return;}
 #endif
+            // Une mission seule se recharge directement : évite deux caméras et AudioListeners simultanés.
             var loadMode=SceneManager.sceneCount==1?LoadSceneMode.Single:LoadSceneMode.Additive;
 #if UNITY_EDITOR
             var operation=UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(scene.path,new LoadSceneParameters(loadMode));

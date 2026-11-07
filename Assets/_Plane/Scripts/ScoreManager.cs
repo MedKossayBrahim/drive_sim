@@ -17,6 +17,7 @@ namespace Project.Plane
         private bool completionAwarded;
         public int Score { get; private set; }
         public int CoinsCollected { get; private set; }
+        public int CoinPoints { get; private set; }
         public int BestScore { get; private set; }
         public event Action<int> OnScoreChanged;
         public event Action<int, string> OnPointsAwarded;
@@ -74,7 +75,9 @@ namespace Project.Plane
         public void CollectCoin(int value)
         {
             if (CoinsCollected < int.MaxValue) CoinsCollected++;
+            int previousScore = Score;
             AddScore(Mathf.Max(0, value), "PIÈCE");
+            CoinPoints += Score - previousScore;
         }
         private void Crashed() { if (crashPenalty > 0) AddScore(-crashPenalty, "CRASH"); }
         private void OnApplicationPause(bool paused) { if (paused) PlayerPrefs.Save(); }

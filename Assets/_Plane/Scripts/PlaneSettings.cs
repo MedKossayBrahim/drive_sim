@@ -57,8 +57,8 @@ namespace Project.Plane
         private float glideSinkResponse = 1f;
         [SerializeField, Range(0f, 0.1f)] private float throttleCutoff = 0.01f;
         [Header("Tilt direct et virage coordonné")]
-        [SerializeField, Range(5f, 70f)] private float tiltBankAngle = 35f;
-        [SerializeField, Range(5f, 60f)] private float tiltPitchAngle = 25f;
+        [SerializeField, Range(5f, 70f)] private float tiltBankAngle = 45f;
+        [SerializeField, Range(5f, 60f)] private float tiltPitchAngle = 20f;
         [SerializeField, Min(0f)] private float tiltRollResponse = 12f;
         [SerializeField, Min(0f)] private float tiltPitchResponse = 8f;
         [SerializeField, Min(0f)] private float tiltAngularDamping = 5f;
@@ -66,16 +66,22 @@ namespace Project.Plane
         private float bankToTurn = 1f;
         [SerializeField, Min(0f)] private float coordinatedTurnResponse = 3f;
         [Header("Joystick tactile — maintien d'assiette et demi-tours")]
-        [SerializeField, Range(10f, 75f)] private float touchBankAngle = 65f;
-        [SerializeField, Range(5f, 50f)] private float touchPitchAngle = 30f;
-        [SerializeField, Min(0f)] private float touchRollResponse = 16f;
+        [SerializeField, Range(10f, 75f)] private float touchBankAngle = 35f;
+        [SerializeField, Range(5f, 50f)] private float touchPitchAngle = 22f;
+        [SerializeField, Min(0f)] private float touchRollResponse = 26f;
+        [SerializeField, Min(1f), Tooltip("Vitesse de cap demandée par le joystick à fond, en degrés par seconde.")]
+        private float touchHeadingRate = 26f;
+        [SerializeField, Min(0.1f)] private float touchHeadingResponse = 12f;
+        [SerializeField, Min(0.1f)] private float touchTrackResponse = 5f;
+        [SerializeField, Min(1f), Tooltip("Accélération horizontale maximale de guidage tactile, en m/s².")]
+        private float touchLateralAcceleration = 25f;
         [SerializeField, Min(0f)] private float touchPitchResponse = 10f;
-        [SerializeField, Min(0f)] private float touchAngularDamping = 4.5f;
-        [SerializeField, Range(.5f, 2.5f), Tooltip("Amplifie le virage coordonné en Touch uniquement ; aucune touche de lacet nécessaire.")]
-        private float touchTurnMultiplier = 1.6f;
-        [SerializeField, Min(30f), Tooltip("Régulation progressive de la poussée dans les derniers 10 % de cette vitesse, en Touch seulement.")]
-        private float touchCruiseSpeed = 80f;
-        [SerializeField, Min(.1f), Tooltip("Réactivité de la trajectoire verticale à l'assiette, moteur actif et hors décrochage. Ne crée pas de portance supplémentaire.")]
+        [SerializeField, Min(0f)] private float touchAngularDamping = 5.5f;
+        [SerializeField, Range(.5f, 2.5f), Tooltip("Amplifie le virage coordonné en Touch lorsque le guidage moteur est inactif.")]
+        private float touchTurnMultiplier = 1.45f;
+        [SerializeField, Min(30f), Tooltip("Régulation progressive de la poussée dans les derniers 10 % de cette vitesse, en Touch et Tilt.")]
+        private float touchCruiseSpeed = 60f;
+        [SerializeField, Min(.1f), Tooltip("Réactivité de la trajectoire verticale en Touch et Tilt, moteur actif et hors décrochage. Ne crée pas de portance supplémentaire.")]
         private float touchFlightPathResponse = 1.8f;
         [Header("Assistance au retour à plat")]
         [SerializeField, Min(0f), Tooltip("Gain de maintien d'assiette Tilt quand le téléphone revient au neutre.")]
@@ -100,6 +106,10 @@ namespace Project.Plane
         public float TouchBankAngle => touchBankAngle;
         public float TouchPitchAngle => touchPitchAngle;
         public float TouchRollResponse => touchRollResponse;
+        public float TouchHeadingRate => Mathf.Max(1f, touchHeadingRate);
+        public float TouchHeadingResponse => Mathf.Max(.1f, touchHeadingResponse);
+        public float TouchTrackResponse => Mathf.Max(.1f, touchTrackResponse);
+        public float TouchLateralAcceleration => Mathf.Max(1f, touchLateralAcceleration);
         public float TouchPitchResponse => touchPitchResponse;
         public float TouchAngularDamping => touchAngularDamping;
         public float TouchTurnMultiplier => touchTurnMultiplier;

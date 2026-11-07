@@ -23,21 +23,25 @@ namespace Project.Plane
         [SerializeField, Min(0f), Tooltip("Réactivité exponentielle ; 0 = réponse immédiate.")]
         private float axisSmoothing = 8f;
         [Header("Joystick tactile")]
-        [SerializeField, Min(0f)] private float touchAxisSmoothing = 14f;
-        [SerializeField, Range(.5f, 2f)] private float touchSensitivity = 1.2f;
-        [SerializeField, Range(.5f, 1.5f), Tooltip("Moins de 1 : réponse plus sensible aux petits déplacements du pouce.")]
-        private float touchResponseExponent = .85f;
+        [SerializeField, Min(0f)] private float touchAxisSmoothing = 16f;
+        [SerializeField, Range(.5f, 2f)] private float touchSensitivity = 1f;
+        [SerializeField, Range(.5f, 2f), Tooltip("Au-dessus de 1, les petits gestes sont plus précis et la pleine course reste disponible.")]
+        private float touchResponseExponent = 1.1f;
+        [SerializeField, Range(0f, 1f), Tooltip("Atténue le tangage parasite des gestes principalement horizontaux.")]
+        private float touchLateralPitchReduction = 0.7f;
 
         [Header("Inclinaison")]
         [SerializeField] private bool useGyroscope = false;
-        [SerializeField, Range(0f, 20f)] private float tiltDeadZoneDegrees = 3f;
+        [SerializeField, Range(0f, 20f)] private float tiltDeadZoneDegrees = 4f;
         [SerializeField, Min(0.01f)] private float tiltSensitivity = 1f;
-        [SerializeField, Range(5f, 85f)] private float maximumTiltDegrees = 35f;
+        [SerializeField, Range(5f, 85f)] private float maximumTiltDegrees = 40f;
+        [SerializeField, Range(.5f, 2f), Tooltip("Adoucit les petites inclinaisons autour de la position calibrée.")]
+        private float tiltResponseExponent = 1.5f;
         [SerializeField] private bool invertPitch = false;
         [SerializeField] private bool simulateTiltWithMouseInEditor = false;
         [SerializeField, Min(0f)] private float mouseDegreesPerPixel = 0.1f;
 
-        [SerializeField, Min(0f)] private float tiltAxisSmoothing = 16f;
+        [SerializeField, Min(0f)] private float tiltAxisSmoothing = 12f;
         [SerializeField, Tooltip("Sur téléphone, attendre Décoller avant de lire les commandes et de calibrer.")]
         private bool requireMobileTakeoffConfirmation = true;
         [Header("Événements configurables")]
@@ -162,7 +166,11 @@ namespace Project.Plane
                 if (throttleSlider != null) throttleValue = throttleSlider.Value;
                 axes = mode == ControlMode.Touch ? (joystick != null ? joystick.Value : Vector2.zero) : ReadTilt();
                 if (mode == ControlMode.Touch)
-                    axes = new Vector2(TouchAxis(axes.x), TouchAxis(axes.y));
+                {
+                    // Un geste latéral perturbe moins l'assiette ; une diagonale volontaire reste disponible.
+                    float lateral = Mathf.SmoothStep(0f, 1f, (Mathf.Abs(axes.x) - Mathf.Abs(axes.y)) * 2f);
+                    axes = new Vector2(TouchAxis(axes.x), TouchAxis(axes.y) * (1f - lateral * touchLateralPitchReduction));
+                }
             }
             float smoothing = mode == ControlMode.Tilt ? tiltAxisSmoothing : mode == ControlMode.Touch ? touchAxisSmoothing : axisSmoothing;
             float blend = smoothing <= 0f ? 1f : 1f - Mathf.Exp(-smoothing * Time.deltaTime);
@@ -269,8 +277,8 @@ namespace Project.Plane
         public float NormalizeTilt(float degrees)
         {
             float dead = Mathf.Min(tiltDeadZoneDegrees, maximumTiltDegrees - 0.1f);
-            return Mathf.Sign(degrees) * Mathf.Clamp01(Mathf.Max(0f, Mathf.Abs(degrees) - dead) /
-                Mathf.Max(0.1f, maximumTiltDegrees - dead) * tiltSensitivity);
+            float fraction = Mathf.InverseLerp(dead, maximumTiltDegrees, Mathf.Abs(degrees));
+            return Mathf.Sign(degrees) * Mathf.Clamp01(Mathf.Pow(fraction, tiltResponseExponent) * tiltSensitivity);
         }
         public void Calibrate()
         {
