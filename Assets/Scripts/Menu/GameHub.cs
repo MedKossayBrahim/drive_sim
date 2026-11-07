@@ -7,9 +7,10 @@ using UnityEngine.UI;
 
 namespace DriveSim.Menu
 {
-    // Accueil, missions, niveaux et gains, dans l'esprit d'un jeu de course mobile.
-    // L'équipe course peut brancher la piste : écouter PlayRequested, puis appeler ReportResult.
-    // mode : 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash. niveau : 1 à 15.
+    // Accueil, missions, véhicules et gains.
+    // Écouter PlayRequested(mode, véhicule), puis appeler ReportResult.
+    // mode : 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash.
+        // véhicule : 1 Avion, 2 Bateau, 3 Voiture, 4 Vélo, 5 Camion.
     public sealed class GameHub : MonoBehaviour
     {
         public static readonly string[] ModeNames = { "Classic", "Capture the flag", "Slalom", "Fee Cash" };
@@ -56,6 +57,7 @@ namespace DriveSim.Menu
             public Image Frame;
             public Image Art;
             public Text Number;
+            public Text Caption;
             public Image Lock;
             public Image[] Stars;
             public RectTransform Pin;
@@ -167,10 +169,10 @@ namespace DriveSim.Menu
             return hub;
         }
 
-        public static void ReportResult(int stars, int score, float seconds)
+        public static void ReportResult(int stars, int score, float seconds, int coinsCollected = 0)
         {
             if (Current != null)
-                Current.Receive(stars, score, seconds);
+                Current.Receive(stars, score, seconds, coinsCollected);
         }
 
         public void BindLogout(UnityAction action)
@@ -210,7 +212,7 @@ namespace DriveSim.Menu
             _progress = GarageProgress.Load(_id);
             var cloud = AuthSession.Player;
             if (cloud != null && cloud.Id == _id)
-                _progress.ApplyCloud(cloud.Coins, cloud.Level, cloud.Score);
+                _progress.ApplyCloud(cloud.Coins, cloud.Level, cloud.Score, cloud.BestPlane, cloud.BestBoat, cloud.BestCar, cloud.BestBike);
             _mode = 0;
             _level = 1;
             _levelPage = 0;
@@ -446,7 +448,7 @@ namespace DriveSim.Menu
             shadeRect.anchorMin = Vector2.zero;
             shadeRect.anchorMax = new Vector2(1f, 0f);
             shadeRect.pivot = new Vector2(0.5f, 0f);
-            shadeRect.sizeDelta = new Vector2(-20f, 168f);
+            shadeRect.sizeDelta = new Vector2(-20f, 196f);
             shadeRect.anchoredPosition = new Vector2(0f, 10f);
 
             var bar = UiKit.Image("Bar", featured.transform, UiKit.Cyan, UiKit.Round(10), false, Image.Type.Sliced);
@@ -465,14 +467,14 @@ namespace DriveSim.Menu
             levelRect.anchorMax = new Vector2(1f, 0f);
             levelRect.pivot = new Vector2(0.5f, 0f);
             levelRect.sizeDelta = new Vector2(-56f, 36f);
-            levelRect.anchoredPosition = new Vector2(0f, 118f);
+            levelRect.anchoredPosition = new Vector2(0f, 142f);
             _featuredBody = UiKit.Label(featured.transform, "", 20, Color.white, FontStyle.Normal, TextAnchor.UpperLeft);
             _featuredBody.verticalOverflow = VerticalWrapMode.Overflow;
             var bodyRect = _featuredBody.rectTransform;
             bodyRect.anchorMin = new Vector2(0f, 0f);
             bodyRect.anchorMax = new Vector2(1f, 0f);
             bodyRect.pivot = new Vector2(0.5f, 0f);
-            bodyRect.sizeDelta = new Vector2(-56f, 78f);
+            bodyRect.sizeDelta = new Vector2(-56f, 104f);
             bodyRect.anchoredPosition = new Vector2(0f, 28f);
         }
 
@@ -500,7 +502,7 @@ namespace DriveSim.Menu
                 card.Button.targetGraphic = frame;
                 UiKit.Tint(card.Button);
                 UiKit.Lip(frame.gameObject, new Color(0f, 0f, 0f, 0.5f), 14f);
-                var art = UiKit.Image("Art", frame.transform, Color.white, UiKit.Car(i), false);
+                var art = UiKit.Image("Art", frame.transform, Color.white, UiKit.ModeArt(i), false);
                 UiKit.Stretch(art.rectTransform, 8f, 8f, 8f, 8f);
                 var bar = UiKit.Image("Bar", frame.transform, UiKit.Cyan, UiKit.Round(8), false, Image.Type.Sliced);
                 var barRect = bar.rectTransform;
@@ -518,7 +520,7 @@ namespace DriveSim.Menu
 
         void BuildLevels()
         {
-            _lines = new RectTransform[4];
+            _lines = new RectTransform[Mathf.Max(0, GarageProgress.PageSize - 1)];
             for (int i = 0; i < _lines.Length; i++)
             {
                 var line = UiKit.Image("Link", _levelRoot, UiKit.Red, UiKit.Pixel, false);
@@ -537,17 +539,17 @@ namespace DriveSim.Menu
                 card.Button.targetGraphic = frame;
                 UiKit.Tint(card.Button);
                 UiKit.Lip(frame.gameObject, new Color(0f, 0f, 0f, 0.45f), 10f);
-                card.Art = UiKit.Image("Art", frame.transform, Color.white, UiKit.LevelCar(), false);
+                card.Art = UiKit.Image("Art", frame.transform, Color.white, UiKit.Car(i), false);
                 UiKit.Stretch(card.Art.rectTransform, 8f, 8f, 8f, 8f);
-                card.Number = UiKit.Label(frame.transform, "1", 54, Color.white, FontStyle.Bold, TextAnchor.MiddleCenter);
+                card.Number = UiKit.Label(frame.transform, GarageProgress.TransportNames[i], 34, Color.white, FontStyle.Bold, TextAnchor.MiddleCenter);
                 var numberRect = card.Number.rectTransform;
                 numberRect.anchorMin = new Vector2(0f, 1f);
                 numberRect.anchorMax = new Vector2(1f, 1f);
                 numberRect.pivot = new Vector2(0.5f, 1f);
                 numberRect.sizeDelta = new Vector2(-16f, 78f);
                 numberRect.anchoredPosition = new Vector2(0f, -10f);
-                var caption = UiKit.Label(frame.transform, "Niveau", 16, UiKit.Soft, FontStyle.Bold, TextAnchor.MiddleCenter);
-                var captionRect = caption.rectTransform;
+                card.Caption = UiKit.Label(frame.transform, "Véhicule", 16, UiKit.Soft, FontStyle.Bold, TextAnchor.MiddleCenter);
+                var captionRect = card.Caption.rectTransform;
                 captionRect.anchorMin = new Vector2(0f, 1f);
                 captionRect.anchorMax = new Vector2(1f, 1f);
                 captionRect.pivot = new Vector2(0.5f, 1f);
@@ -682,13 +684,14 @@ namespace DriveSim.Menu
 
         void BuildBoard(RectTransform content)
         {
-            Note(content, "Tes records sur cet appareil.", 48f);
-            _boardScore = new Text[GarageProgress.ModeCount];
-            _boardTime = new Text[GarageProgress.ModeCount];
-            for (int i = 0; i < GarageProgress.ModeCount; i++)
+            Note(content, "Meilleur score par transport, enregistré sur ton compte.", 56f);
+            _boardScore = new Text[4];
+            _boardTime = new Text[4];
+            for (int i = 0; i < 4; i++)
             {
                 var row = Band(content, 96f);
-                var name = UiKit.Label(row, ModeNames[i], 26, Color.white, FontStyle.Bold, TextAnchor.MiddleLeft);
+                string boardName = GarageProgress.TransportNames[i];
+                var name = UiKit.Label(row, boardName, 26, Color.white, FontStyle.Bold, TextAnchor.MiddleLeft);
                 UiKit.Stretch(name.rectTransform, 24f, 16f, 420f, 16f);
                 _boardScore[i] = UiKit.Label(row, "—", 24, UiKit.Gold, FontStyle.Bold, TextAnchor.MiddleRight);
                 var scoreRect = _boardScore[i].rectTransform;
@@ -712,12 +715,12 @@ namespace DriveSim.Menu
             string[] names =
             {
                 "Clé en main", "Première pièce", "Première arrivée", "Trois étoiles",
-                "Bourse pleine", "Cinquième niveau", "Quatre départs", "Record personnel"
+                "Bourse pleine", "Tous les véhicules", "Quatre départs", "Record personnel"
             };
             string[] details =
             {
-                "Ouvrir l'accueil du garage", "Recevoir des pièces", "Terminer un niveau", "Obtenir 3 étoiles",
-                "Gagner 1 000 pièces au total", "Débloquer un niveau 5", "Finir le niveau 1 de chaque mode", "Battre un de tes scores"
+                "Ouvrir l'accueil du garage", "Recevoir des pièces", "Terminer l'avion", "Obtenir 3 étoiles",
+                "Gagner 1 000 pièces au total", "Débloquer tous les véhicules", "Finir l'avion dans chaque mode", "Battre un de tes scores"
             };
             for (int i = 0; i < names.Length; i++)
             {
@@ -1131,24 +1134,26 @@ namespace DriveSim.Menu
                 float cy;
                 float cardW;
                 float cardH;
+                int count = Mathf.Max(1, _levels.Length);
                 if (_landscape)
                 {
-                    cardW = Mathf.Clamp(size.x * 0.11f, 150f, 210f);
+                    cardW = Mathf.Clamp(size.x / (count + 1.6f), 118f, 190f);
                     cardH = cardW * 1.38f;
-                    float t = i / 4f;
-                    cx = Mathf.Lerp(left + cardW, size.x - right - cardW, t);
-                    float wave = i % 2 == 0 ? 0.08f : 0.78f;
-                    if (i == 3)
-                        wave = 0.58f;
-                    cy = top + cardH * 0.55f + wave * Mathf.Max(40f, avail - cardH - 30f);
+                    float t = count == 1 ? 0.5f : i / (float)(count - 1);
+                    cx = Mathf.Lerp(left + cardW * 0.7f, size.x - right - cardW * 0.7f, t);
+                    float wave = i % 2 == 0 ? 0.08f : 0.72f;
+                    if (i == count - 2)
+                        wave = 0.48f;
+                    cy = top + cardH * 0.55f + wave * Mathf.Max(24f, avail - cardH - 20f);
                     _levels[i].Rect.localEulerAngles = new Vector3(0f, 0f, i % 2 == 0 ? -6f : 5f);
                 }
                 else
                 {
-                    cardH = Mathf.Max(120f, (avail - 48f) / 5f);
-                    cardW = Mathf.Min(size.x * 0.42f, cardH * 0.78f);
+                    float gap = 6f;
+                    cardH = Mathf.Max(88f, (avail - gap * (count - 1)) / count);
+                    cardW = Mathf.Min(size.x * 0.4f, cardH * 0.86f);
                     cx = i % 2 == 0 ? left + cardW * 0.65f : size.x - right - cardW * 0.65f;
-                    cy = top + cardH * 0.5f + i * (cardH + 8f);
+                    cy = top + cardH * 0.5f + i * (cardH + gap);
                     _levels[i].Rect.localEulerAngles = new Vector3(0f, 0f, i % 2 == 0 ? -4f : 4f);
                 }
                 int level = _levelPage * GarageProgress.PageSize + i + 1;
@@ -1231,14 +1236,12 @@ namespace DriveSim.Menu
         {
             if (_page == Page.Home)
             {
-                _blurbText.text = "Choisis un mode, puis un niveau. Le bouton vert ouvre les missions.";
+                _blurbText.text = ModeNames[_mode] + "    ·    Avion, puis bateau, puis voiture, puis vélo.";
                 return;
             }
             if (_page == Page.Levels)
             {
-                int first = _levelPage * GarageProgress.PageSize + 1;
-                int last = first + GarageProgress.PageSize - 1;
-                _blurbText.text = ModeNames[_mode] + "    ·    Niveaux " + first + " – " + last;
+                _blurbText.text = ModeNames[_mode] + "    ·    " + GarageProgress.TransportName(_level);
                 return;
             }
             _blurbText.text = ModeTexts[_mode];
@@ -1254,10 +1257,10 @@ namespace DriveSim.Menu
             int best = _progress.BestScore(_mode);
             _statRecord.text = best > 0 ? Num(best) : "—";
             _statCoins.text = Num(_progress.Coins);
-            _featuredArt.sprite = UiKit.Car(_mode);
-            _featuredTitle.text = ModeNames[_mode];
-            _featuredBody.text = ModeTexts[_mode];
-            _featuredLevel.text = "Niveau " + _progress.Unlocked(_mode);
+            _featuredArt.sprite = UiKit.Car(Mathf.Clamp(_level - 1, 0, GarageProgress.LevelCount - 1));
+            _featuredTitle.text = GarageProgress.TransportName(_level);
+            _featuredBody.text = "1  Avion\n2  Bateau\n3  Voiture\n4  Vélo";
+            _featuredLevel.text = "Avion  ·  Bateau  ·  Voiture  ·  Vélo";
         }
 
         void RefreshMissionFrames()
@@ -1274,9 +1277,19 @@ namespace DriveSim.Menu
                 bool open = _progress.IsUnlocked(_mode, level);
                 bool selected = level == _level;
                 var card = _levels[i];
-                card.Number.text = level.ToString();
+                string name = GarageProgress.TransportName(level);
+                card.Number.text = name;
+                card.Number.fontSize = name.Length > 6 ? 28 : 34;
                 card.Number.color = open ? Color.white : new Color(0.82f, 0.84f, 0.88f, 1f);
+                if (card.Caption != null)
+                {
+                    int record = open ? _progress.BestScoreAt(_mode, level) : 0;
+                    card.Caption.text = !open
+                        ? "Verrouillé"
+                        : record > 0 ? "Record  " + Num(record) : GarageProgress.TransportHint(level);
+                }
                 card.Frame.color = !open ? new Color(0.62f, 0.66f, 0.72f, 1f) : selected ? UiKit.Cyan : Color.white;
+                card.Art.sprite = UiKit.Car(level - 1);
                 card.Art.color = open ? Color.white : new Color(0.4f, 0.44f, 0.5f, 1f);
                 card.Lock.gameObject.SetActive(!open);
                 int stars = _progress.Stars(_mode, level);
@@ -1313,10 +1326,9 @@ namespace DriveSim.Menu
                 return;
             for (int i = 0; i < _boardScore.Length; i++)
             {
-                int best = _progress.BestScore(i);
-                float time = _progress.BestTime(i);
+                int best = _progress.BestScoreForVehicle(i + 1);
                 _boardScore[i].text = best > 0 ? Num(best) : "—";
-                _boardTime[i].text = time > 0f ? "Meilleur temps  " + Clock(time) : "Pas encore de temps";
+                _boardTime[i].text = best > 0 ? "Record conservé" : "Pas encore de record";
             }
         }
 
@@ -1368,9 +1380,7 @@ namespace DriveSim.Menu
                 Go(_page);
                 return;
             }
-            if (_page == Page.Levels)
-                Go(Page.Missions);
-            else if (_page != Page.Home)
+            if (_page != Page.Home)
                 Go(Page.Home);
         }
 
@@ -1380,7 +1390,9 @@ namespace DriveSim.Menu
                 return;
             if (_page == Page.Home)
             {
-                Go(Page.Missions);
+                _level = 1;
+                _levelPage = 0;
+                Go(Page.Levels);
                 return;
             }
             if (_page == Page.Missions)
@@ -1446,7 +1458,7 @@ namespace DriveSim.Menu
             int level = _levelPage * GarageProgress.PageSize + slot + 1;
             if (!_progress.IsUnlocked(_mode, level))
             {
-                Toast("Niveau verrouillé. Termine le précédent.");
+                Toast("Véhicule verrouillé. Termine le précédent.");
                 return;
             }
             if (level == _level)
@@ -1462,7 +1474,12 @@ namespace DriveSim.Menu
         {
             if (_progress == null || !_progress.IsUnlocked(_mode, _level))
             {
-                Toast("Niveau verrouillé. Termine le précédent.");
+                Toast("Véhicule verrouillé. Termine le précédent.");
+                return;
+            }
+            if (!GarageProgress.IsPlayable(_level))
+            {
+                Toast(GarageProgress.TransportName(_level) + " arrive bientôt.");
                 return;
             }
             if (PlayRequested != null)
@@ -1474,22 +1491,26 @@ namespace DriveSim.Menu
             int stars = _progress.PreviewStars(_mode, _level);
             int score = 80000 * _level * stars + _progress.Attempts(_mode, _level) * 2500;
             float time = 68f + _level * 3.2f - stars * 5f;
-            Receive(stars, score, time);
+            Receive(stars, score, time, 15 * stars);
         }
 
-        void Receive(int stars, int score, float seconds)
+        void Receive(int stars, int score, float seconds, int coinsCollected = 0)
         {
             gameObject.SetActive(true);
             if (_progress == null)
                 return;
             if (stars <= 0)
             {
+                _progress.BankRun(_mode, _level, score, coinsCollected);
                 _results = false;
                 Go(Page.Levels);
-                Toast("Course abandonnée");
+                Toast(coinsCollected > 0
+                    ? "Course terminée · +" + Num(coinsCollected) + " pièces"
+                    : "Course abandonnée");
+                PushProgress();
                 return;
             }
-            var outcome = _progress.Complete(_mode, _level, stars, score, seconds);
+            var outcome = _progress.Complete(_mode, _level, stars, score, seconds, coinsCollected);
             _results = true;
             FillResult(stars, score, seconds, outcome);
             var size = ((RectTransform)transform).rect.size;
@@ -1503,8 +1524,9 @@ namespace DriveSim.Menu
 
         void FillResult(int stars, int score, float seconds, GarageProgress.Outcome outcome)
         {
-            string tail = outcome.NewRecord ? "   ·   Nouveau record" : outcome.FirstClear ? "   ·   Niveau réussi" : "";
-            _resultSubtitle.text = ModeNames[_mode] + "   ·   Niveau " + _level + "   ·   +" + Num(outcome.Reward) + " pièces" + tail;
+            string tail = outcome.NewRecord ? "   ·   Nouveau record" : outcome.FirstClear ? "   ·   Véhicule réussi" : "";
+            _resultSubtitle.text = ModeNames[_mode] + "   ·   " + GarageProgress.TransportName(_level)
+                + "   ·   +" + Num(outcome.Reward) + " pièces" + tail;
             _gainValue.text = Num(score);
             _timeValue.text = Clock(seconds);
             _recordValue.text = Num(outcome.BestScore);
@@ -1530,7 +1552,12 @@ namespace DriveSim.Menu
         {
             if (_level >= GarageProgress.LevelCount)
             {
-                Toast("Dernier niveau de ce mode.");
+                Toast("Dernier véhicule de ce mode.");
+                return;
+            }
+            if (!_progress.IsUnlocked(_mode, _level + 1))
+            {
+                Toast("Véhicule suivant encore verrouillé.");
                 return;
             }
             _level += 1;
@@ -1579,9 +1606,20 @@ namespace DriveSim.Menu
                     AuthSession.AccessToken,
                     _progress.Coins,
                     _progress.CloudLevel,
-                    _progress.CloudScore);
+                    _progress.CloudScore,
+                    _progress.BestScoreForVehicle(1),
+                    _progress.BestScoreForVehicle(2),
+                    _progress.BestScoreForVehicle(3),
+                    _progress.BestScoreForVehicle(4));
                 if (result.Ok && result.Player != null)
-                    AuthSession.UpdateProgress(result.Player.Coins, result.Player.Level, result.Player.Score);
+                    AuthSession.UpdateProgress(
+                        result.Player.Coins,
+                        result.Player.Level,
+                        result.Player.Score,
+                        result.Player.BestPlane,
+                        result.Player.BestBoat,
+                        result.Player.BestCar,
+                        result.Player.BestBike);
             }
             catch (Exception)
             {
@@ -1658,7 +1696,7 @@ namespace DriveSim.Menu
             {
                 case Page.Home: return "ACCUEIL";
                 case Page.Missions: return "MISSIONS";
-                case Page.Levels: return "NIVEAUX";
+                case Page.Levels: return "VÉHICULES";
                 case Page.Shop: return "BOUTIQUE";
                 case Page.Settings: return "RÉGLAGES";
                 case Page.Board: return "CLASSEMENT";

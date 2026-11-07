@@ -58,9 +58,18 @@ namespace DriveSim.User
             return Send(baseUrl, "/users/me", "GET", null, accessToken);
         }
 
-        public static Task<AuthResult> UpdateProgress(string baseUrl, string accessToken, int coins, int level, int score)
+        public static Task<AuthResult> UpdateProgress(string baseUrl, string accessToken, int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0)
         {
-            var body = JsonUtility.ToJson(new ProgressBody { coins = coins, level = level, score = score });
+            var body = JsonUtility.ToJson(new ProgressBody
+            {
+                coins = coins,
+                level = level,
+                score = score,
+                bestPlane = bestPlane,
+                bestBoat = bestBoat,
+                bestCar = bestCar,
+                bestBike = bestBike
+            });
             return Send(baseUrl, "/users/progress", "PUT", body, accessToken);
         }
 
@@ -139,7 +148,7 @@ namespace DriveSim.User
         static PlayerProfile ToProfile(UserBody user)
         {
             if (user == null) return null;
-            return new PlayerProfile(user.id, user.email, user.displayName, user.coins, Math.Max(1, user.level), user.score);
+            return new PlayerProfile(user.id, user.email, user.displayName, user.coins, Math.Max(1, user.level), user.score, user.bestPlane, user.bestBoat, user.bestCar, user.bestBike);
         }
 
         static string ReadError(string error, string fallback)
@@ -155,7 +164,16 @@ namespace DriveSim.User
         [Serializable] class LoginBody { public string email; public string password; }
         [Serializable] class RegisterBody { public string email; public string password; public string displayName; }
         [Serializable] class RefreshBody { public string refreshToken; }
-        [Serializable] class ProgressBody { public int coins; public int level; public int score; }
+        [Serializable] class ProgressBody
+        {
+            public int coins;
+            public int level;
+            public int score;
+            public int bestPlane;
+            public int bestBoat;
+            public int bestCar;
+            public int bestBike;
+        }
         [Serializable] class UserBody
         {
             public string id;
@@ -164,6 +182,10 @@ namespace DriveSim.User
             public int coins;
             public int level;
             public int score;
+            public int bestPlane;
+            public int bestBoat;
+            public int bestCar;
+            public int bestBike;
         }
         [Serializable] class TokenBody { public string accessToken; public string refreshToken; public UserBody user; public string error; }
         [Serializable] class MeBody { public UserBody user; public string error; }

@@ -133,9 +133,14 @@ namespace DriveSim.Menu
         public static Sprite Circle() => SpriteOf("circle", PaintCircle);
         public static Sprite Star() => SpriteOf("star", PaintStar);
         public static Sprite Backdrop() => SpriteOf("backdrop", PaintBackdrop);
-        public static Sprite Car(int mode) => SpriteOf("car" + mode, () => PaintCar(mode));
-        public static Sprite LevelCar() => SpriteOf("levelcar", PaintLevelCar);
+        // 0 Avion, 1 Bateau, 2 Voiture, 3 Vélo, 4 Camion.
+        public static Sprite Car(int vehicle) => SpriteOf("vehicleArt" + vehicle, () => LoadVehicleArt(vehicle));
+        // Illustrations des modes de jeu (Classic, CTF, Slalom, Fee Cash).
+        public static Sprite ModeArt(int mode) => SpriteOf("mode" + mode, () => PaintModeArt(mode));
+        public static Sprite LevelCar() => SpriteOf("levelcar", () => LoadVehicleArt(2));
         public static Sprite Icon(string name) => SpriteOf("icon" + name, () => PaintIcon(name));
+
+        static readonly string[] VehicleResourceNames = { "plane", "boat", "car", "bike", "truck" };
 
         static Sprite SpriteOf(string key, System.Func<Sprite> paint)
         {
@@ -145,6 +150,25 @@ namespace DriveSim.Menu
             found = paint();
             Cache[key] = found;
             return found;
+        }
+
+        static Sprite LoadVehicleArt(int vehicle)
+        {
+            vehicle = Mathf.Clamp(vehicle, 0, VehicleResourceNames.Length - 1);
+            string path = "Menu/Vehicles/" + VehicleResourceNames[vehicle];
+            var sprite = Resources.Load<Sprite>(path);
+            if (sprite != null)
+                return sprite;
+            var texture = Resources.Load<Texture2D>(path);
+            if (texture != null)
+            {
+                return Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+            return PaintVehicle(vehicle);
         }
 
         static Sprite PaintPixel()
@@ -218,13 +242,10 @@ namespace DriveSim.Menu
             return pix.ToSprite(Vector4.zero);
         }
 
-        static Sprite PaintCar(int mode)
+        static Sprite PaintModeArt(int mode)
         {
-            Color skyA;
-            Color skyB;
-            Color ground;
-            Color body;
-            Color trim;
+            mode = Mathf.Clamp(mode, 0, 3);
+            Color skyA, skyB, ground, body, trim;
             switch (mode)
             {
                 case 1:
@@ -261,30 +282,114 @@ namespace DriveSim.Menu
             pix.VGradient(0, 236, skyA, skyB);
             pix.FillRect(0, 236, 300, 154, ground);
             pix.FillRect(0, 292, 300, 5, new Color(1f, 1f, 1f, 0.22f));
-            for (int i = 0; i < 6; i++)
-                pix.Line(8, 70 + i * 26, 150, 78 + i * 22, 2f, new Color(1f, 1f, 1f, 0.08f));
-
             if (mode == 1)
             {
                 pix.FillCircle(78, 210, 78, new Color(1f, 0.35f, 0.05f, 0.95f));
                 pix.FillCircle(70, 200, 46, new Color(1f, 0.82f, 0.28f, 0.95f));
-                pix.FillCircle(64, 196, 18, new Color(1f, 0.95f, 0.8f, 0.9f));
             }
             else if (mode == 2)
             {
                 pix.Line(16, 330, 140, 286, 4f, new Color(1f, 1f, 1f, 0.35f));
-                pix.Line(24, 348, 180, 300, 3f, new Color(1f, 1f, 1f, 0.22f));
             }
             else if (mode == 3)
             {
-                pix.FillCircle(36, 300, 26, new Color(0.22f, 0.2f, 0.18f, 1f));
-                pix.FillCircle(258, 286, 34, new Color(0.16f, 0.15f, 0.14f, 1f));
                 pix.FillCircle(70, 318, 9, Gold);
                 pix.FillCircle(196, 330, 7, Gold);
-                pix.FillCircle(230, 250, 6, Gold);
+            }
+            DrawSideCar(pix, body, trim);
+            pix.Vignette(0.4f);
+            return pix.ToSprite(Vector4.zero);
+        }
+
+        static Sprite PaintVehicle(int kind)
+        {
+            kind = Mathf.Clamp(kind, 0, 4);
+            Color skyA, skyB, ground;
+            switch (kind)
+            {
+                case 1: // Bateau
+                    skyA = new Color(0.1f, 0.28f, 0.42f);
+                    skyB = new Color(0.45f, 0.72f, 0.78f);
+                    ground = new Color(0.05f, 0.28f, 0.4f);
+                    break;
+                case 2: // Voiture
+                    skyA = new Color(0.18f, 0.05f, 0.02f);
+                    skyB = new Color(0.55f, 0.22f, 0.05f);
+                    ground = new Color(0.07f, 0.06f, 0.07f);
+                    break;
+                case 3: // Vélo
+                    skyA = new Color(0.04f, 0.12f, 0.08f);
+                    skyB = new Color(0.18f, 0.42f, 0.28f);
+                    ground = new Color(0.08f, 0.14f, 0.1f);
+                    break;
+                case 4: // Camion
+                    skyA = new Color(0.22f, 0.26f, 0.3f);
+                    skyB = new Color(0.55f, 0.58f, 0.6f);
+                    ground = new Color(0.28f, 0.27f, 0.26f);
+                    break;
+                default: // Avion
+                    skyA = new Color(0.02f, 0.08f, 0.2f);
+                    skyB = new Color(0.25f, 0.55f, 0.85f);
+                    ground = new Color(0.12f, 0.28f, 0.22f);
+                    break;
             }
 
-            DrawSideCar(pix, body, trim);
+            var pix = new Pix(300, 390);
+            pix.VGradient(0, 236, skyA, skyB);
+            pix.FillRect(0, 236, 300, 154, ground);
+            if (kind == 0)
+            {
+                // Piste d'aéroport.
+                pix.FillRect(40, 280, 220, 36, new Color(0.18f, 0.2f, 0.22f, 1f));
+                pix.FillRect(48, 294, 28, 6, Color.white);
+                pix.FillRect(96, 294, 28, 6, Color.white);
+                pix.FillRect(144, 294, 28, 6, Color.white);
+                pix.FillRect(192, 294, 28, 6, Color.white);
+                pix.FillCircle(60, 90, 22, new Color(1f, 1f, 1f, 0.55f));
+                pix.FillCircle(120, 70, 14, new Color(1f, 1f, 1f, 0.35f));
+            }
+            else if (kind == 1)
+            {
+                pix.FillRect(0, 250, 300, 140, new Color(0.04f, 0.32f, 0.46f, 1f));
+                pix.FillRect(0, 268, 300, 8, new Color(0.75f, 0.9f, 0.92f, 0.35f));
+            }
+            else if (kind == 2)
+            {
+                pix.FillRect(0, 292, 300, 5, new Color(1f, 1f, 1f, 0.22f));
+                pix.FillCircle(78, 210, 78, new Color(1f, 0.35f, 0.05f, 0.95f));
+                pix.FillCircle(70, 200, 46, new Color(1f, 0.82f, 0.28f, 0.95f));
+            }
+            else if (kind == 3)
+            {
+                pix.FillRect(0, 300, 300, 8, new Color(0.2f, 0.35f, 0.22f, 1f));
+                for (int i = 0; i < 5; i++)
+                    pix.FillCircle(40 + i * 55, 250, 18 + (i % 2) * 8, new Color(0.12f, 0.32f, 0.16f, 0.9f));
+            }
+            else
+            {
+                pix.FillRect(0, 292, 300, 5, new Color(1f, 1f, 1f, 0.18f));
+                pix.Line(16, 330, 140, 286, 4f, new Color(1f, 1f, 1f, 0.28f));
+            }
+
+            switch (kind)
+            {
+                case 1:
+                    DrawSideBoat(pix);
+                    break;
+                case 2:
+                    DrawSideCar(pix, new Color(0.12f, 0.38f, 0.95f), new Color(0.85f, 0.9f, 0.95f));
+                    break;
+                case 3:
+                    DrawSideBike(pix);
+                    break;
+                case 4:
+                    DrawSideTruck(pix);
+                    break;
+                default:
+                    DrawSidePlane(pix);
+                    break;
+            }
+
             pix.Vignette(0.4f);
             return pix.ToSprite(Vector4.zero);
         }
@@ -311,29 +416,122 @@ namespace DriveSim.Menu
             pix.FillRect(30, 196, 12, 10, new Color(1f, 0.16f, 0.18f, 1f));
         }
 
-        static Sprite PaintLevelCar()
+        static void DrawSidePlane(Pix pix)
         {
-            var pix = new Pix(240, 320);
-            pix.VGradient(0, 319, new Color(0.28f, 0.36f, 0.58f), new Color(0.5f, 0.6f, 0.82f));
-            pix.FillRect(28, 0, 26, 320, new Color(1f, 1f, 1f, 0.06f));
-            pix.FillRect(186, 0, 22, 320, new Color(1f, 1f, 1f, 0.05f));
-            pix.FillRect(0, 0, 240, 108, new Color(0.05f, 0.1f, 0.2f, 0.28f));
-            var paint = new Color(0.62f, 0.7f, 0.86f, 1f);
-            var shade = new Color(0.34f, 0.42f, 0.6f, 1f);
-            pix.FillPolygon(shade, (70f, 78f), (170f, 78f), (196f, 132f), (44f, 132f));
-            pix.FillPolygon(new Color(0.12f, 0.16f, 0.24f, 1f), (82f, 84f), (158f, 84f), (176f, 126f), (64f, 126f));
-            pix.FillPolygon(paint, (36f, 128f), (204f, 128f), (220f, 210f), (20f, 210f));
-            pix.FillRect(108, 136, 24, 46, new Color(0.1f, 0.12f, 0.16f, 1f));
-            pix.FillCircle(74, 176, 24, new Color(1f, 0.12f, 0.14f, 0.35f));
-            pix.FillCircle(166, 176, 24, new Color(1f, 0.12f, 0.14f, 0.35f));
-            pix.FillCircle(74, 176, 12, new Color(1f, 0.18f, 0.16f, 1f));
-            pix.FillCircle(166, 176, 12, new Color(1f, 0.18f, 0.16f, 1f));
-            pix.FillCircle(74, 176, 5, new Color(1f, 0.9f, 0.85f, 1f));
-            pix.FillCircle(166, 176, 5, new Color(1f, 0.9f, 0.85f, 1f));
-            pix.RoundRect(24, 200, 192, 42, 10, shade);
-            pix.RoundRect(78, 214, 84, 16, 4, new Color(0.08f, 0.1f, 0.14f, 1f));
-            pix.Vignette(0.25f);
-            return pix.ToSprite(Vector4.zero);
+            var body = new Color(0.92f, 0.94f, 0.97f, 1f);
+            var accent = new Color(0.95f, 0.38f, 0.12f, 1f);
+            var dark = new Color(0.2f, 0.24f, 0.3f, 1f);
+            var glass = new Color(0.15f, 0.35f, 0.55f, 0.95f);
+            pix.FillEllipse(150f, 250f, 120f, 14f, new Color(0f, 0f, 0f, 0.35f));
+            // Ailes.
+            pix.FillPolygon(accent, (70f, 188f), (230f, 188f), (250f, 208f), (50f, 208f));
+            pix.FillPolygon(Color.Lerp(accent, Color.black, 0.25f), (80f, 192f), (220f, 192f), (235f, 204f), (65f, 204f));
+            // Fuselage.
+            pix.FillEllipse(150f, 186f, 110f, 28f, body);
+            pix.FillEllipse(150f, 180f, 100f, 18f, Color.Lerp(body, Color.white, 0.35f));
+            // Cockpit.
+            pix.FillEllipse(230f, 178f, 28f, 16f, glass);
+            pix.FillEllipse(236f, 174f, 12f, 8f, new Color(0.55f, 0.8f, 0.95f, 0.7f));
+            // Queue.
+            pix.FillPolygon(body, (48f, 186f), (78f, 186f), (62f, 130f), (48f, 148f));
+            pix.FillPolygon(accent, (52f, 170f), (88f, 178f), (88f, 190f), (52f, 186f));
+            // Hélice.
+            pix.FillCircle(262, 186, 10, dark);
+            pix.FillEllipse(278f, 186f, 18f, 5f, dark);
+            pix.FillEllipse(262f, 168f, 5f, 16f, new Color(0.3f, 0.34f, 0.4f, 0.85f));
+            // Fenêtres.
+            for (int i = 0; i < 4; i++)
+                pix.FillCircle(120 + i * 22, 180, 5, glass);
+            // Train d'atterrissage.
+            pix.FillRect(118, 210, 6, 28, dark);
+            pix.FillRect(188, 210, 6, 28, dark);
+            pix.FillCircle(121, 240, 10, new Color(0.08f, 0.08f, 0.1f, 1f));
+            pix.FillCircle(191, 240, 10, new Color(0.08f, 0.08f, 0.1f, 1f));
+            pix.FillCircle(121, 240, 4, Color.gray);
+            pix.FillCircle(191, 240, 4, Color.gray);
+        }
+
+        static void DrawSideBoat(Pix pix)
+        {
+            var hull = new Color(0.04f, 0.33f, 0.4f, 1f);
+            var deck = new Color(0.93f, 0.9f, 0.82f, 1f);
+            var cabin = new Color(0.08f, 0.16f, 0.28f, 1f);
+            var glass = new Color(0.55f, 0.84f, 0.88f, 0.95f);
+            pix.FillEllipse(150f, 268f, 130f, 14f, new Color(0f, 0f, 0f, 0.28f));
+            pix.FillPolygon(hull, (36f, 214f), (236f, 206f), (286f, 248f), (28f, 252f));
+            pix.FillPolygon(new Color(0.02f, 0.2f, 0.26f, 1f), (48f, 228f), (250f, 224f), (274f, 248f), (40f, 250f));
+            pix.RoundRect(78, 168, 118, 46, 8, deck);
+            pix.FillPolygon(cabin, (156f, 168f), (214f, 168f), (198f, 128f), (168f, 128f));
+            pix.FillRect(172, 136, 22, 18, glass);
+            pix.FillRect(250, 214, 16, 8, new Color(0.95f, 0.35f, 0.2f, 1f));
+        }
+
+        static void DrawSideTruck(Pix pix)
+        {
+            var cab = new Color(0.9f, 0.22f, 0.16f, 1f);
+            var box = new Color(0.75f, 0.78f, 0.82f, 1f);
+            var dark = new Color(0.12f, 0.12f, 0.14f, 1f);
+            var glass = new Color(0.15f, 0.28f, 0.4f, 0.95f);
+            pix.FillEllipse(155f, 268f, 135f, 16f, new Color(0f, 0f, 0f, 0.38f));
+            // Remorque.
+            pix.RoundRect(28, 148, 150, 96, 8, box);
+            pix.FillRect(36, 156, 134, 10, Color.Lerp(box, Color.white, 0.25f));
+            pix.FillRect(36, 180, 134, 4, new Color(0.45f, 0.48f, 0.52f, 1f));
+            pix.FillRect(36, 204, 134, 4, new Color(0.45f, 0.48f, 0.52f, 1f));
+            // Cabine.
+            pix.RoundRect(178, 160, 96, 84, 10, cab);
+            pix.FillPolygon(glass, (190f, 168f), (250f, 168f), (262f, 200f), (190f, 200f));
+            pix.FillRect(186, 208, 80, 8, Color.Lerp(cab, Color.white, 0.2f));
+            pix.FillRect(262, 220, 14, 10, new Color(1f, 0.95f, 0.7f, 1f));
+            pix.FillRect(182, 220, 12, 12, new Color(1f, 0.2f, 0.15f, 1f));
+            // Roues.
+            pix.FillCircle(70, 248, 26, dark);
+            pix.FillCircle(130, 248, 26, dark);
+            pix.FillCircle(220, 248, 28, dark);
+            pix.FillCircle(70, 248, 11, new Color(0.7f, 0.72f, 0.75f, 1f));
+            pix.FillCircle(130, 248, 11, new Color(0.7f, 0.72f, 0.75f, 1f));
+            pix.FillCircle(220, 248, 12, new Color(0.7f, 0.72f, 0.75f, 1f));
+        }
+
+        static void DrawSideBike(Pix pix)
+        {
+            var frame = new Color(0.95f, 0.78f, 0.1f, 1f);
+            var dark = new Color(0.1f, 0.1f, 0.12f, 1f);
+            var seat = new Color(0.25f, 0.18f, 0.12f, 1f);
+            var rim = new Color(0.7f, 0.72f, 0.74f, 1f);
+            var hubFill = new Color(0.14f, 0.32f, 0.22f, 1f);
+            pix.FillEllipse(150f, 262f, 110f, 12f, new Color(0f, 0f, 0f, 0.3f));
+            // Roues (pneu + jante + centre, sans trou transparent).
+            DrawBikeWheel(pix, 80, 230, dark, rim, hubFill);
+            DrawBikeWheel(pix, 220, 230, dark, rim, hubFill);
+            // Cadre.
+            pix.Line(80, 230, 140, 160, 7f, frame);
+            pix.Line(140, 160, 210, 170, 7f, frame);
+            pix.Line(140, 160, 150, 230, 6f, frame);
+            pix.Line(150, 230, 220, 230, 6f, frame);
+            pix.Line(210, 170, 220, 230, 6f, frame);
+            pix.Line(80, 230, 150, 230, 5f, frame);
+            // Selle et guidon.
+            pix.RoundRect(124, 148, 36, 12, 4, seat);
+            pix.Line(210, 170, 210, 140, 5f, dark);
+            pix.Line(192, 140, 228, 140, 6f, dark);
+            // Pédalier.
+            pix.FillCircle(150, 230, 12, dark);
+            pix.FillRect(146, 218, 8, 28, frame);
+        }
+
+        static void DrawBikeWheel(Pix pix, float cx, float cy, Color tire, Color rim, Color hub)
+        {
+            pix.FillCircle(cx, cy, 42, tire);
+            pix.FillCircle(cx, cy, 30, hub);
+            pix.FillCircle(cx, cy, 28, rim);
+            pix.FillCircle(cx, cy, 18, hub);
+            pix.FillCircle(cx, cy, 8, tire);
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * Mathf.PI / 3f;
+                pix.Line(cx + Mathf.Cos(a) * 8, cy + Mathf.Sin(a) * 8, cx + Mathf.Cos(a) * 26, cy + Mathf.Sin(a) * 26, 2f, tire);
+            }
         }
 
         static Sprite PaintIcon(string name)

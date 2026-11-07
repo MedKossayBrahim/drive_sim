@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f60c130fa5594d3d94f0b8cee3b1062, type: 3}
+  m_Name: FlightMissionSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Project.Plane.FlightMissionSettings
+  requiredCoins: 15
+  landingBonus: 500
+  requireAllRings: 0
+  arrivalCenter: {x: 0, y: 0, z: 3000}
+  runwayWidth: 48
+  runwayLength: 900
+  maximumStoppedSpeed: 5
+  maximumVerticalSpeed: 2
+  maximumBank: 12
+  maximumHeadingError: 20
+  stoppedHoldSeconds: 2
+  maximumGroundGap: 0.35
+  wheelBrakeAcceleration: 8
+  boundaryFootRadius: 3600
+  boundaryRidgeRadius: 3850
+  boundaryOuterRadius: 4400
+  minimumRidgeHeight: 1050
+  peakVariation: 180
+  mountainSeed: 2417

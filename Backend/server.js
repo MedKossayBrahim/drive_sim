@@ -41,9 +41,17 @@ function normalizeUser(user) {
   if (typeof user.coins !== "number" || !Number.isFinite(user.coins)) user.coins = 0;
   if (typeof user.level !== "number" || !Number.isFinite(user.level)) user.level = 1;
   if (typeof user.score !== "number" || !Number.isFinite(user.score)) user.score = 0;
+  if (typeof user.bestPlane !== "number" || !Number.isFinite(user.bestPlane)) user.bestPlane = 0;
+  if (typeof user.bestBoat !== "number" || !Number.isFinite(user.bestBoat)) user.bestBoat = 0;
+  if (typeof user.bestCar !== "number" || !Number.isFinite(user.bestCar)) user.bestCar = 0;
+  if (typeof user.bestBike !== "number" || !Number.isFinite(user.bestBike)) user.bestBike = 0;
   user.coins = Math.max(0, Math.min(Math.floor(user.coins), 999999999));
-  user.level = Math.max(1, Math.min(Math.floor(user.level), 15));
+  user.level = Math.max(1, Math.min(Math.floor(user.level), 5));
   user.score = Math.max(0, Math.min(Math.floor(user.score), 999999999));
+  user.bestPlane = Math.max(0, Math.min(Math.floor(user.bestPlane), 999999999));
+  user.bestBoat = Math.max(0, Math.min(Math.floor(user.bestBoat), 999999999));
+  user.bestCar = Math.max(0, Math.min(Math.floor(user.bestCar), 999999999));
+  user.bestBike = Math.max(0, Math.min(Math.floor(user.bestBike), 999999999));
   return user;
 }
 
@@ -56,6 +64,10 @@ function publicUser(user) {
     coins: safe.coins,
     level: safe.level,
     score: safe.score,
+    bestPlane: safe.bestPlane,
+    bestBoat: safe.bestBoat,
+    bestCar: safe.bestCar,
+    bestBike: safe.bestBike,
   };
 }
 
@@ -139,6 +151,10 @@ app.post("/auth/register", async (request, response) => {
     coins: 0,
     level: 1,
     score: 0,
+    bestPlane: 0,
+    bestBoat: 0,
+    bestCar: 0,
+    bestBike: 0,
   });
   const tokens = issueTokens(user);
   db.users.push(user);
@@ -229,14 +245,22 @@ app.put("/users/progress", (request, response) => {
     const coins = Number(request.body.coins);
     const level = Number(request.body.level);
     const score = Number(request.body.score);
-    if (![coins, level, score].every((value) => Number.isFinite(value))) {
+    const bestPlane = Number(request.body.bestPlane ?? 0);
+    const bestBoat = Number(request.body.bestBoat ?? 0);
+    const bestCar = Number(request.body.bestCar ?? 0);
+    const bestBike = Number(request.body.bestBike ?? 0);
+    if (![coins, level, score, bestPlane, bestBoat, bestCar, bestBike].every((value) => Number.isFinite(value))) {
       return response.status(400).json({ error: "coins, level et score doivent être des nombres." });
     }
 
     normalizeUser(user);
     user.coins = Math.max(user.coins, Math.floor(coins));
     user.level = Math.max(user.level, Math.floor(level));
-    user.score = Math.max(user.score, Math.floor(score));
+    user.score = Math.max(user.score, Math.floor(score), Math.floor(bestPlane), Math.floor(bestBoat), Math.floor(bestCar), Math.floor(bestBike));
+    user.bestPlane = Math.max(user.bestPlane, Math.floor(bestPlane));
+    user.bestBoat = Math.max(user.bestBoat, Math.floor(bestBoat));
+    user.bestCar = Math.max(user.bestCar, Math.floor(bestCar));
+    user.bestBike = Math.max(user.bestBike, Math.floor(bestBike));
     normalizeUser(user);
     saveDb(db);
     response.json({ user: publicUser(user) });

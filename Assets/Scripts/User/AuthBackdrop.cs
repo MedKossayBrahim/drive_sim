@@ -31,6 +31,7 @@ namespace DriveSim.User
             if (Current != null)
                 return Current;
             var root = new GameObject("AuthGarage");
+            DontDestroyOnLoad(root);
             return root.AddComponent<AuthBackdrop>();
         }
 

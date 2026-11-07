@@ -1,0 +1,43 @@
+Sky Courier — Provenance et licences des assets
+État au 25 octobre 2026.
+
+1. Neuf GLB générés — TRELLIS/Gemini
+Provenance déclarée par l'utilisateur : TRELLIS/Gemini.
+Licence : À VÉRIFIER selon les conditions de l'outil utilisé et les droits
+sur les éventuelles images de référence ; aucune autorisation déduite ici.
+Fichiers :
+- Plane/plane_body.glb
+- Plane/plane_propeller.glb
+- Props/crate.glb
+- Props/drop_target.glb
+- Airport/hangar.glb
+- Airport/control_tower.glb
+- Environment/pine_tree.glb
+- Environment/rocks.glb
+- Environment/wind_turbine.glb
+
+2. Checkpoint/checkpoint_ring.glb
+Source : model.glb ; origine 3dassets.dev.
+Licence : À VÉRIFIER.
+Le champ generator indique « 3dassets.dev ingest » et ne constitue pas une licence.
+
+3. Kenney Racing Kit (2.0)
+Licence : Creative Commons Zero (CC0).
+112 FBX et 3 textures ; texte original conservé dans Kenney/License.txt.
+Source : kenney_racing-kit.zip, créé/distribué par Kenney (www.kenney.nl).
+
+4. Poly Haven — panoramas EXR dans ../Skyboxes/
+Licence : CC0 selon https://polyhaven.com/license
+- sky_noon.exr : qwantani_noon_puresky_4k.exr
+  https://polyhaven.com/a/qwantani_noon_puresky
+- sky_sunset.exr : qwantani_sunset_puresky_4k.exr
+  https://polyhaven.com/a/qwantani_sunset_puresky
+- sky_night.exr : qwantani_night_puresky_4k.exr
+  https://polyhaven.com/a/qwantani_night_puresky
+- sky_storm.exr : quarry_cloudy_4k.exr
+  https://polyhaven.com/a/quarry_cloudy
+
+5. airport — À VÉRIFIER (non importé)
+Airport.fbx et 5 images sont uniquement dans _ImportStaging/airport/ à la
+racine du dépôt, hors Assets et ignorés par Git. Aucun droit supposé.
+Le hangar et la tour générés mentionnés en section 1 sont des assets distincts.

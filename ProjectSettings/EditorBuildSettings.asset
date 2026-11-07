@@ -8,5 +8,17 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/_Plane/Scenes/Plane_Scene.unity
+    guid: 51d857df25a204215b70a7d6e2eb6d1b
+  - enabled: 1
+    path: Assets/_Boat/Scenes/BoatRunner.unity
+    guid: e121c218efc33d648b89a214ccca27a5
+  - enabled: 1
+    path: Assets/SimplePoly City - Low Poly Assets/Demo/SimplePoly City - Low Poly Assets_Demo Scene.unity
+    guid: 7e6d3f4e5d896154ab4438845532ac3e
+  - enabled: 1
+    path: Assets/BikeGame/Scenes/ForestBikeRide.unity
+    guid: 7b2e9c4d1a6f43d8b5c0e3a7f9d61428
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

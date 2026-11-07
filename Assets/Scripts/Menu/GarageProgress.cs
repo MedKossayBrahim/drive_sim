@@ -3,14 +3,24 @@ using UnityEngine;
 
 namespace DriveSim.Menu
 {
-    // Pièces, expérience, niveaux et records de ce joueur (local + sync serveur).
+    // Pièces, expérience, véhicules et records de ce joueur (local + sync serveur).
     public sealed class GarageProgress
     {
         public const int ModeCount = 4;
-        public const int LevelCount = 15;
+        public const int LevelCount = 5;
         public const int PageSize = 5;
-        public const int PageCount = 3;
+        public const int PageCount = 1;
         public const int TitleCount = 4;
+
+        public static readonly string[] TransportNames = { "Avion", "Bateau", "Voiture", "Vélo", "Camion" };
+        public static readonly string[] TransportHints =
+        {
+            "Décollage, pièces et atterrissage.",
+            "Traverse l'océan et ramasse les jetons.",
+            "Conduis en ville et ramasse les pièces.",
+            "Roule en forêt et ramasse les pièces.",
+            "Bientôt disponible."
+        };
 
         public static readonly string[] TitleNames = { "Recrue", "Pilote", "Flèche", "Légende" };
         public static readonly int[] TitlePrice = { 0, 800, 2200, 6000 };
@@ -70,7 +80,24 @@ namespace DriveSim.Menu
         public int Records => _save.records;
         public int Title => Mathf.Clamp(_save.title, 0, TitleCount - 1);
 
-        // Résumé synchronisé avec le compte backend (coins, level, score).
+        public static string TransportName(int level)
+        {
+            int index = Mathf.Clamp(level, 1, LevelCount) - 1;
+            return TransportNames[index];
+        }
+
+        public static string TransportHint(int level)
+        {
+            int index = Mathf.Clamp(level, 1, LevelCount) - 1;
+            return TransportHints[index];
+        }
+
+        public static bool IsPlane(int level) => level == 1;
+        public static bool IsBoat(int level) => level == 2;
+        public static bool IsCar(int level) => level == 3;
+        public static bool IsBike(int level) => level == 4;
+        public static bool IsPlayable(int level) => IsPlane(level) || IsBoat(level) || IsCar(level) || IsBike(level);
+
         public int CloudLevel
         {
             get
@@ -93,15 +120,42 @@ namespace DriveSim.Menu
             }
         }
 
-        public void ApplyCloud(int coins, int level, int score)
+        public void ApplyCloud(int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0)
         {
             _save.coins = Mathf.Max(_save.coins, Mathf.Max(0, coins));
             level = Mathf.Clamp(level, 1, LevelCount);
             for (int mode = 0; mode < ModeCount; mode++)
                 _save.unlocked[mode] = Mathf.Max(_save.unlocked[mode], level);
-            if (score > CloudScore)
+            bool legacyScore = bestPlane <= 0 && bestBoat <= 0 && bestCar <= 0 && bestBike <= 0;
+            if (legacyScore && score > CloudScore)
                 _save.bestScore[0] = Mathf.Max(_save.bestScore[0], score);
+            KeepVehicleBest(1, bestPlane);
+            KeepVehicleBest(2, bestBoat);
+            KeepVehicleBest(3, bestCar);
+            KeepVehicleBest(4, bestBike);
             Store();
+        }
+
+        public int BestScoreAt(int mode, int level)
+        {
+            return _save.bestScore[Index(mode, level)];
+        }
+
+        public int BestScoreForVehicle(int level)
+        {
+            int best = 0;
+            for (int mode = 0; mode < ModeCount; mode++)
+                best = Mathf.Max(best, BestScoreAt(mode, level));
+            return best;
+        }
+
+        void KeepVehicleBest(int level, int score)
+        {
+            if (score <= 0)
+                return;
+            int index = Index(0, level);
+            if (score > _save.bestScore[index])
+                _save.bestScore[index] = score;
         }
 
         public int Unlocked(int mode)
@@ -158,7 +212,7 @@ namespace DriveSim.Menu
         {
             for (int mode = 0; mode < ModeCount; mode++)
             {
-                if (Unlocked(mode) >= 5)
+                if (Unlocked(mode) >= LevelCount)
                     return true;
             }
             return false;
@@ -206,15 +260,18 @@ namespace DriveSim.Menu
             return true;
         }
 
-        public Outcome Complete(int mode, int level, int stars, int score, float time)
+        // Victoire : pièces de la course créditées, meilleur score conservé, véhicule suivant débloqué.
+        public Outcome Complete(int mode, int level, int stars, int score, float time, int coinsCollected = 0)
         {
             stars = Mathf.Clamp(stars, 1, 3);
             score = Mathf.Max(0, score);
             time = Mathf.Max(0.1f, time);
+            coinsCollected = Mathf.Max(0, coinsCollected);
             int index = Index(mode, level);
             bool first = _save.stars[index] == 0;
-            bool record = _save.bestScore[index] > 0 && score > _save.bestScore[index];
-            if (score > _save.bestScore[index])
+            int previousBest = _save.bestScore[index];
+            bool record = previousBest > 0 && score > previousBest;
+            if (score > previousBest)
                 _save.bestScore[index] = score;
             if (_save.bestTime[index] <= 0f || time < _save.bestTime[index])
                 _save.bestTime[index] = time;
@@ -225,7 +282,7 @@ namespace DriveSim.Menu
             int slot = Mathf.Clamp(mode, 0, ModeCount - 1);
             if (level >= _save.unlocked[slot] && level < LevelCount)
                 _save.unlocked[slot] = level + 1;
-            int reward = 350 * stars * Mathf.Max(1, level);
+            int reward = coinsCollected > 0 ? coinsCollected : 350 * stars * Mathf.Max(1, level);
             _save.coins += reward;
             _save.lifetime += reward;
             _save.xp += 20 * stars * Mathf.Max(1, level);
@@ -244,15 +301,46 @@ namespace DriveSim.Menu
             };
         }
 
+        // Échec ou abandon : conserve les pièces collectées et le meilleur score.
+        public void BankRun(int mode, int level, int score, int coinsCollected)
+        {
+            coinsCollected = Mathf.Max(0, coinsCollected);
+            score = Mathf.Max(0, score);
+            if (coinsCollected > 0)
+            {
+                _save.coins += coinsCollected;
+                _save.lifetime += coinsCollected;
+            }
+            int index = Index(mode, level);
+            if (score > _save.bestScore[index])
+                _save.bestScore[index] = score;
+            _save.attempts[index] += 1;
+            Store();
+        }
+
         void Normalize()
         {
             _save.unlocked = Fit(_save.unlocked, ModeCount, 1);
-            _save.stars = Fit(_save.stars, ModeCount * LevelCount, 0);
-            _save.bestScore = Fit(_save.bestScore, ModeCount * LevelCount, 0);
-            _save.attempts = Fit(_save.attempts, ModeCount * LevelCount, 0);
-            _save.bestTime = FitFloat(_save.bestTime, ModeCount * LevelCount);
+            const int oldCount = 4;
+            bool legacy = LevelCount != oldCount
+                && _save.stars != null
+                && _save.stars.Length == ModeCount * oldCount;
+            if (legacy)
+            {
+                _save.stars = RemapVehicles(_save.stars);
+                _save.bestScore = RemapVehicles(_save.bestScore);
+                _save.attempts = RemapVehicles(_save.attempts);
+                _save.bestTime = RemapVehiclesFloat(_save.bestTime);
+            }
+            else
+            {
+                _save.stars = Fit(_save.stars, ModeCount * LevelCount, 0);
+                _save.bestScore = Fit(_save.bestScore, ModeCount * LevelCount, 0);
+                _save.attempts = Fit(_save.attempts, ModeCount * LevelCount, 0);
+                _save.bestTime = FitFloat(_save.bestTime, ModeCount * LevelCount);
+            }
             for (int i = 0; i < ModeCount; i++)
-                _save.unlocked[i] = Mathf.Clamp(_save.unlocked[i], 1, LevelCount);
+                _save.unlocked[i] = Mathf.Clamp(Mathf.Max(_save.unlocked[i], 4), 4, LevelCount);
             if (_save.owned == 0)
                 _save.owned = 1;
             if (!Owns(_save.title))
@@ -270,6 +358,47 @@ namespace DriveSim.Menu
         {
             PlayerPrefs.SetString(_key, JsonUtility.ToJson(_save));
             PlayerPrefs.Save();
+        }
+
+        // Ancien ordre : Avion, Voiture, Camion, Vélo. Le bateau s'insère en deuxième.
+        static int[] RemapVehicles(int[] source)
+        {
+            const int oldCount = 4;
+            int[] map = { 0, 2, 3, 4 };
+            var data = new int[ModeCount * LevelCount];
+            if (source == null)
+                return data;
+            for (int mode = 0; mode < ModeCount; mode++)
+            {
+                for (int oldLevel = 0; oldLevel < oldCount; oldLevel++)
+                {
+                    int oldIndex = mode * oldCount + oldLevel;
+                    if (oldIndex >= source.Length)
+                        continue;
+                    data[mode * LevelCount + map[oldLevel]] = source[oldIndex];
+                }
+            }
+            return data;
+        }
+
+        static float[] RemapVehiclesFloat(float[] source)
+        {
+            const int oldCount = 4;
+            int[] map = { 0, 2, 3, 4 };
+            var data = new float[ModeCount * LevelCount];
+            if (source == null)
+                return data;
+            for (int mode = 0; mode < ModeCount; mode++)
+            {
+                for (int oldLevel = 0; oldLevel < oldCount; oldLevel++)
+                {
+                    int oldIndex = mode * oldCount + oldLevel;
+                    if (oldIndex >= source.Length)
+                        continue;
+                    data[mode * LevelCount + map[oldLevel]] = source[oldIndex];
+                }
+            }
+            return data;
         }
 
         static int[] Fit(int[] source, int size, int fill)
