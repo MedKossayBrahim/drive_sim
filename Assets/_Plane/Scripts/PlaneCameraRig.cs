@@ -58,7 +58,7 @@ namespace Project.Plane
 
         private Camera viewCamera;
         private Quaternion followRotation;
-        private Vector3 positionVelocity, lastTargetPosition, lastStableUp = Vector3.up;
+        private Vector3 positionVelocity, chaseRelativeOffset, lastTargetPosition, lastStableUp = Vector3.up;
         private PlaneCameraMode appliedMode;
         private bool initialized, mouseDragging;
         private int? orbitTouchId;
@@ -173,6 +173,7 @@ namespace Project.Plane
                 orbitYaw = Target.eulerAngles.y; orbitPitch = initialOrbitPitch;
             }
             followRotation = FollowBasis(); positionVelocity = Vector3.zero;
+            chaseRelativeOffset = followRotation * chaseOffset;
             Vector3 center = Target.position + Vector3.up * lookHeight;
             if (mode == PlaneCameraMode.Cockpit && cockpitView != null)
             {
@@ -181,7 +182,7 @@ namespace Project.Plane
             }
             else
             {
-                Vector3 position = mode == PlaneCameraMode.Orbit ? OrbitPosition(center) : Target.position + followRotation * chaseOffset;
+                Vector3 position = mode == PlaneCameraMode.Orbit ? OrbitPosition(center) : Target.position + chaseRelativeOffset;
                 position = AvoidClipping(center, position);
                 Vector3 look = mode == PlaneCameraMode.Orbit ? center : center + Target.forward * lookAhead;
                 transform.SetPositionAndRotation(position, LookRotation(look - position, mode == PlaneCameraMode.Orbit ? Vector3.up : followRotation * Vector3.up));
@@ -208,23 +209,35 @@ namespace Project.Plane
             if (dt <= 0f) return;
             followRotation = Quaternion.Slerp(followRotation, FollowBasis(), 1f - Mathf.Exp(-rotationSharpness * dt));
             Vector3 center = Target.position + Vector3.up * lookHeight;
-            Vector3 desired = mode == PlaneCameraMode.Orbit ? OrbitPosition(center) : Target.position + followRotation * chaseOffset;
-            Vector3 position = Vector3.SmoothDamp(transform.position, desired, ref positionVelocity,
-                Mathf.Max(0.01f, positionSmoothTime), Mathf.Infinity, dt);
-            Vector3 look = mode == PlaneCameraMode.Orbit ? center : center + Target.forward * lookAhead;
-            Quaternion orientation = Quaternion.Slerp(transform.rotation,
-                LookRotation(look - position, mode == PlaneCameraMode.Orbit ? Vector3.up : followRotation * Vector3.up),
-                1f - Mathf.Exp(-rotationSharpness * dt));
+            bool orbit = mode == PlaneCameraMode.Orbit;
+            float smoothTime = Mathf.Max(0.01f, positionSmoothTime);
+            Vector3 position;
+            if (orbit)
+            {
+                position = Vector3.SmoothDamp(transform.position, OrbitPosition(center), ref positionVelocity,
+                    smoothTime, Mathf.Infinity, dt);
+            }
+            else
+            {
+                // L'avion est déjà interpolé : seul le décalage de caméra prend du retard dans le virage.
+                chaseRelativeOffset = Vector3.SmoothDamp(chaseRelativeOffset, followRotation * chaseOffset,
+                    ref positionVelocity, smoothTime, Mathf.Infinity, dt);
+                position = Target.position + chaseRelativeOffset;
+            }
+            Vector3 safePosition = AvoidClipping(center, position);
+            if (orbit && (safePosition - position).sqrMagnitude > 0.0001f) positionVelocity = Vector3.zero;
+            Vector3 look = orbit ? center : center + Target.forward * lookAhead;
+            Quaternion orientation = LookRotation(look - safePosition, orbit ? Vector3.up : followRotation * Vector3.up);
+            if (orbit)
+                orientation = Quaternion.Slerp(transform.rotation, orientation, 1f - Mathf.Exp(-rotationSharpness * dt));
             if (highSpeedShake)
             {
                 float intensity = Mathf.InverseLerp(shakeStartSpeed, Mathf.Max(shakeStartSpeed + 1f, fullFovSpeed), Speed);
                 float t = Time.time * shakeFrequency;
                 Vector2 noise = new Vector2(Mathf.PerlinNoise(t, 1.7f), Mathf.PerlinNoise(8.3f, t)) * 2f - Vector2.one;
-                position += orientation * new Vector3(noise.x, noise.y, 0f) * (shakePosition * intensity);
+                safePosition = AvoidClipping(center, safePosition + orientation * new Vector3(noise.x, noise.y, 0f) * (shakePosition * intensity));
                 orientation *= Quaternion.Euler(noise.y * shakeDegrees * intensity, noise.x * shakeDegrees * intensity, 0f);
             }
-            Vector3 safePosition = AvoidClipping(center, position);
-            if ((safePosition - position).sqrMagnitude > 0.0001f) positionVelocity = Vector3.zero;
             transform.SetPositionAndRotation(safePosition, orientation);
             viewCamera.fieldOfView = Mathf.Lerp(viewCamera.fieldOfView, FlightFov(), 1f - Mathf.Exp(-fovSharpness * dt));
             lastTargetPosition = Target.position;

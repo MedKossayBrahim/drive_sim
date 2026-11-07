@@ -16,6 +16,9 @@ namespace Project.Plane
     /// <summary>Scénario collecte/atterrissage ; construit ses seules racines et dégage le relief existant de l'arrivée.</summary>
     public static class FinalFlightMissionBuilder
     {
+        private const string ArrivalPrefabPath = "Assets/_Plane/Prefabs/Airport/ArrivalAirport.prefab";
+        private const string FinishLineName = "FinishLine";
+
         [MenuItem("Sky Courier/Scenario/Build Final Flight Mission")]
         public static void Build()
         {
@@ -58,7 +61,7 @@ namespace Project.Plane
             input.transform.SetPositionAndRotation(new Vector3(start.bounds.center.x,start.bounds.max.y+1.8f,start.bounds.min.z+70f),Quaternion.LookRotation(start.transform.forward));
             PrefabUtility.RecordPrefabInstancePropertyModifications(input.transform);
             ModuleSceneUtility.Save(scene);
-            Debug.Log($"[Sky Courier] Mission prête : {config.RequiredCoins} pièces, piste finale {config.RunwayLength:0} m, arrêt 2 s, bonus {config.LandingBonus}. Ceinture solide au-dessus de {ceiling.CeilingAltitude:0} m ; impact = échec terminal. Aucun réglage global modifié.");
+            Debug.Log($"[Sky Courier] Mission prête : {config.RequiredCoins} pièces, piste finale {config.RunwayLength:0} m, posé stable {config.LandingContactSeconds:0.0} s, bonus {config.LandingBonus}.");
         }
         public static FlightMissionSettings Settings()
         {
@@ -92,12 +95,59 @@ namespace Project.Plane
                 }
                 Building(root.transform,"hangar",new Vector3(-175,0,150),25f,false,ground);
                 Building(root.transform,"control_tower",new Vector3(90,0,220),20f,true,ground);
-                var prefab=PrefabUtility.SaveAsPrefabAsset(root,"Assets/_Plane/Prefabs/Airport/ArrivalAirport.prefab");
+                AddFinishLine(root.transform, white, asphalt, lights);
+                var prefab=PrefabUtility.SaveAsPrefabAsset(root,ArrivalPrefabPath);
                 var instance=(GameObject)PrefabUtility.InstantiatePrefab(prefab,parent);instance.name="ArrivalAirport";instance.transform.position=config.ArrivalCenter;
                 return instance;
             }
             finally{UnityEngine.Object.DestroyImmediate(root);}
         }
+
+        [MenuItem("Sky Courier/Scenario/Update Arrival Finish Line")]
+        public static void UpdateArrivalFinishLine()
+        {
+            using var scope = new PrefabUtility.EditPrefabContentsScope(ArrivalPrefabPath);
+            Transform airport = scope.prefabContentsRoot.transform;
+            var white = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Plane/Materials/Airport/Markings_White.mat");
+            var asphalt = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Plane/Materials/Airport/Asphalt.mat");
+            var lights = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Plane/Materials/Arrival_Lights.mat");
+            AddFinishLine(airport, white, asphalt, lights);
+        }
+
+        private static void AddFinishLine(Transform airport, Material white, Material asphalt, Material lights)
+        {
+            var runway = airport.Find("Runway_Arrival");
+            if (runway == null || white == null || asphalt == null || lights == null)
+                throw new InvalidOperationException("Piste d’arrivée ou matériaux du damier introuvables.");
+
+            var line = airport.Find(FinishLineName);
+            if (line != null) UnityEngine.Object.DestroyImmediate(line.gameObject);
+            line = new GameObject(FinishLineName).transform;
+            line.SetParent(airport, false);
+            line.localPosition = runway.localPosition + new Vector3(0f, runway.localScale.y * .5f, -runway.localScale.z * .36f);
+            line.gameObject.isStatic = true;
+
+            // Repère visuel à l'approche : le seul collider de piste reste le tarmac.
+            const int columns = 8;
+            const float depth = 7f;
+            float tileWidth = runway.localScale.x / columns;
+            int layer = runway.gameObject.layer;
+            for (int row = 0; row < 2; row++)
+            for (int col = 0; col < columns; col++)
+            {
+                var position = new Vector3((col + .5f - columns * .5f) * tileWidth, .06f, (row - .5f) * depth);
+                var material = (row + col) % 2 == 0 ? white : asphalt;
+                Cube($"Checker_{row}_{col}", line, position, new Vector3(tileWidth, .04f, depth), material, layer, false);
+            }
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Cube($"FinishBar_{side}", line, new Vector3(0f, .06f, side * (depth + .65f)),
+                    new Vector3(runway.localScale.x, .04f, 1.3f), lights, layer, false);
+                Cube($"FinishBeacon_{side}", line, new Vector3(side * (runway.localScale.x * .5f + 3f), 2f, 0f),
+                    new Vector3(1.5f, 4f, 1.5f), lights, layer, false);
+            }
+        }
+
         private static GameObject Cube(string name,Transform parent,Vector3 position,Vector3 scale,Material material,int layer,bool solid)
         {
             var obj=GameObject.CreatePrimitive(PrimitiveType.Cube);obj.name=name;obj.transform.SetParent(parent,false);

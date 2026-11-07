@@ -11,9 +11,9 @@ namespace Project.Plane
         [SerializeField, Min(20f)] private float coinSpacing = 65f;
         [SerializeField, Range(0, 6)] private int bonusCoinsPerRing = 3;
         [SerializeField, Min(0)] private int coinValue = 25;
-        [SerializeField, Range(2f, 8f)] private float pickupRadius = 4f;
-        [SerializeField, Range(.5f, 5f), Tooltip("Rayon visuel des pièces en mètres, indépendant du collider.")]
-        private float coinVisualRadius = 2.8f;
+        [SerializeField, Range(2f, 30f)] private float pickupRadius = 20f;
+        [SerializeField, Range(.5f, 12f), Tooltip("Rayon visuel des pièces en mètres, indépendant du collider.")]
+        private float coinVisualRadius = 8f;
         [Header("Montagnes — hauteurs sous l'alerte 600 m")]
         [SerializeField, Range(8, 48)] private int mountainCount = 28;
         [SerializeField, Range(800f, 3000f)] private float innerRadius = 1800f;

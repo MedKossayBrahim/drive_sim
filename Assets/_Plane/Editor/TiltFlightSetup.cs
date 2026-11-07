@@ -39,15 +39,16 @@ namespace Project.Plane
                     SceneManager.sceneCount==1&&!SceneManager.GetActiveScene().isDirty?OpenSceneMode.Single:OpenSceneMode.Additive);
                 ConfigureScene(scene);AssetDatabase.SaveAssets();EditorSceneManager.MarkSceneDirty(scene);
                 if(!EditorSceneManager.SaveScene(scene))throw new InvalidOperationException("Sauvegarde de Plane_Scene impossible.");
-                Debug.Log("[Sky Courier] Tilt direct et chute prêts : 3° / 35°, lissage 16, Tilt Android par défaut, Décoller calibre au départ, Facile/Pro et inversion dans Pause. Plané nominal 8:1 train rentré ; Health et Checkpoint*.cs inchangés.");
+                Debug.Log("[Sky Courier] Tilt direct et chute prêts : 4° / 40°, lissage 12, Tilt Android par défaut, Décoller calibre au départ, Facile/Pro et inversion dans Pause. Plané nominal 8:1 train rentré ; Health et Checkpoint*.cs inchangés.");
             }
             catch(Exception exception){Debug.LogException(exception);}
         }
         static void ConfigureInput(PlaneInput input)
         {
             if(input==null)throw new InvalidOperationException("PlaneInput absent.");var s=new SerializedObject(input);
-            s.FindProperty("useMobileDefault").boolValue=true;s.FindProperty("maximumTiltDegrees").floatValue=35;
-            s.FindProperty("tiltDeadZoneDegrees").floatValue=3;s.FindProperty("tiltAxisSmoothing").floatValue=16;
+            s.FindProperty("useMobileDefault").boolValue=true;s.FindProperty("maximumTiltDegrees").floatValue=40;
+            s.FindProperty("tiltDeadZoneDegrees").floatValue=4;s.FindProperty("tiltAxisSmoothing").floatValue=12;
+            s.FindProperty("tiltResponseExponent").floatValue=1.5f;
             s.FindProperty("requireMobileTakeoffConfirmation").boolValue=true;s.ApplyModifiedPropertiesWithoutUndo();
         }
         public static void ConfigureScene(Scene scene)

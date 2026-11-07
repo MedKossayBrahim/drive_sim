@@ -14,6 +14,7 @@ namespace Project.Plane
         [SerializeField] private GameObject resultPanel;
         [SerializeField, Min(0f)] private float explosionPresentationDelay=.9f;
         private PlaneMenu menu;
+        private LandingVictoryView victoryView;
         private void LateUpdate()
         {
             if(mission==null)return;
@@ -25,19 +26,43 @@ namespace Project.Plane
             objectivePanel.sizeDelta=new Vector2(Mathf.Max(220f,right-left),140f);
             if(mission.CanLand)
             {
-                float distance=Vector3.Distance(input.transform.position,mission.Arrival.AimPoint);
-                objective.text=$"PIÈCES {mission.Score.CoinsCollected}/{mission.Settings.RequiredCoins}\nATTERRISSEZ À L’ARRIVÉE\n{distance:0} m · COUPEZ LES GAZ AU POSÉ";
+                mission.Arrival.GetApproachGuidance(out _, out string instruction);
+                objective.text = $"3 / 3 · APPROCHE\n{instruction}";
             }
-            else objective.text=$"OBJECTIF : PIÈCES {mission.Score.CoinsCollected}/{mission.Settings.RequiredCoins}\nPUIS ATTERRISSEZ À L’ARRIVÉE";
+            else if (!mission.HasTakenOff)
+            {
+                objective.text = input != null && !input.IsMissionStarted
+                    ? "1 / 3 · DÉCOLLAGE\nAPPUYEZ SUR DÉCOLLER"
+                    : "1 / 3 · DÉCOLLAGE\nMONTEZ LES GAZ · CABREZ DOUCEMENT";
+            }
+            else if (mission.Settings.RequireAllRings && mission.Score.CoinsCollected >= mission.Settings.RequiredCoins)
+            {
+                objective.text = $"2 / 3 · PARCOURS\nANNEAUX {mission.RingsPassed}/{mission.RingCount}";
+            }
+            else
+            {
+                objective.text = $"2 / 3 · COLLECTE\nPIÈCES {mission.Score.CoinsCollected}/{mission.Settings.RequiredCoins} · SUIVEZ LA FLÈCHE";
+            }
             bool showResult=terminal&&(mission.State==FlightMissionState.Won||Time.unscaledTime-mission.EndedAt>=explosionPresentationDelay);
             resultPanel.SetActive(showResult);
-            if(showResult)
+            if (!showResult) return;
+
+            bool won = mission.State == FlightMissionState.Won;
+            endTitle.transform.parent.gameObject.SetActive(!won);
+            if (won)
             {
-                endTitle.text=mission.State==FlightMissionState.Won?"MISSION RÉUSSIE":"CRASH — MISSION ÉCHOUÉE";
-                endDetails.text=$"SCORE {mission.Score.Score}\nPIÈCES {mission.Score.CoinsCollected}\n"+
-                    (mission.State==FlightMissionState.Won?"Atterrissage sûr à l’aéroport d’arrivée.":"Évitez le relief et posez-vous sur la piste avant les montagnes.");
-                Cursor.lockState=CursorLockMode.None;Cursor.visible=!Application.isMobilePlatform;
+                if (victoryView == null)
+                    victoryView = LandingVictoryView.Create(resultPanel.transform, endTitle.font, mission, Restart, Quit);
+                victoryView.gameObject.SetActive(true);
             }
+            else
+            {
+                if (victoryView != null) victoryView.gameObject.SetActive(false);
+                endTitle.text = "CRASH — MISSION ÉCHOUÉE";
+                endDetails.text = $"SCORE {mission.Score.Score}\nPIÈCES {mission.Score.CoinsCollected}\nÉvitez le relief et posez-vous sur la piste avant les montagnes.";
+            }
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = !Application.isMobilePlatform;
         }
         private PlaneMenu Menu()
         {

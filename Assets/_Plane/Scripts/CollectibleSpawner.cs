@@ -14,6 +14,30 @@ namespace Project.Plane
         [SerializeField] private PlaneHealth health;
         public int PlannedCount => localPositions.Length;
         public int SpawnedCount => instances.Length;
+
+        internal Collectible FindGuidanceCoin(Vector3 position, Vector3 forward)
+        {
+            int ground = LayerMask.GetMask("Ground");
+            var heading = Vector3.ProjectOnPlane(forward, Vector3.up).normalized;
+            Collectible best = null;
+            float bestCost = float.PositiveInfinity;
+            foreach (var coin in instances)
+            {
+                if (coin == null || !coin.isActiveAndEnabled || coin.IsCollected) continue;
+
+                Vector3 offset = coin.transform.position - position;
+                Vector3 flat = Vector3.ProjectOnPlane(offset, Vector3.up);
+                // Une pièce derrière reste disponible, mais les pièces devant facilitent la poursuite du vol.
+                float alignment = Vector3.Dot(heading, flat.normalized);
+                float cost = offset.sqrMagnitude * Mathf.Lerp(3.5f, 1f, (alignment + 1f) * .5f);
+                if (cost >= bestCost) continue;
+                if (Physics.Linecast(position, coin.transform.position, ground, QueryTriggerInteraction.Ignore)) continue;
+                best = coin;
+                bestCost = cost;
+            }
+            return best;
+        }
+
         private void Awake()
         {
             // Repli pour une scène livrée uniquement avec les données. Ne double pas les instances déjà sérialisées.
@@ -26,7 +50,14 @@ namespace Project.Plane
                     instances[i].transform.localPosition = localPositions[i];
                 }
             }
-            foreach (var item in instances) if (item != null) item.Bind(score, aircraft, health);
+            FlightPowerUps bonuses = null;
+            if (aircraft != null && score != null && health != null && instances.Length > 1)
+            {
+                bonuses = aircraft.GetComponent<FlightPowerUps>() ?? aircraft.gameObject.AddComponent<FlightPowerUps>();
+                bonuses.Configure(aircraft, health, transform, instances);
+            }
+            foreach (var item in instances)
+                if (item != null) item.Bind(score, aircraft, health, bonuses);
         }
 #if UNITY_EDITOR
         public void Configure(Collectible source, Vector3[] positions, Collectible[] coins,
