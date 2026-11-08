@@ -112,7 +112,7 @@ public class GPSWorldTracker : MonoBehaviour
 
     [Tooltip("Speed (Unity units/s) below which the target is treated as stationary.")]
     [Min(0f)]
-    [SerializeField] private float stationarySpeedThreshold = 0.5f;
+    [SerializeField] private float stationarySpeedThreshold = 0.05f;
 
     [Header("Reverse Geocoding")]
     [Tooltip("Request a new address after the VIRTUAL point has moved at least " +
@@ -670,12 +670,26 @@ public class GPSWorldTracker : MonoBehaviour
 
         bool hasBody = targetRigidbody != null;
 
-        if (hasBody && onlyMoveWhenStationary &&
-            targetRigidbody.linearVelocity.sqrMagnitude >
-            stationarySpeedThreshold * stationarySpeedThreshold)
+        if (hasBody)
         {
-            // The car is being driven by gyro physics; defer the GPS correction so
-            // the two movement systems never fight over the same transform.
+            if (onlyMoveWhenStationary)
+            {
+                bool moving = targetRigidbody.linearVelocity.sqrMagnitude >
+                              stationarySpeedThreshold * stationarySpeedThreshold;
+
+                if (moving)
+                {
+                    // The car is being driven manually. Keep the GPS world anchor
+                    // under it, otherwise the tracker drags the car back toward its
+                    // old GPS position as soon as the player releases the gas.
+                    originWorldPosition = targetRigidbody.position - gpsWorldOffset;
+                    desiredWorldPosition = targetRigidbody.position;
+                }
+            }
+
+            // A Rigidbody driven by GyroCarController must never also be moved
+            // by the GPS interpolation path. Otherwise releasing the gas makes
+            // the tracker pull the car toward its previous GPS target.
             return;
         }
 

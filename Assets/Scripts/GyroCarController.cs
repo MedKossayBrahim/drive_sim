@@ -1,402 +1,307 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using InputSystemGyroscope = UnityEngine.InputSystem.Gyroscope;
 
+/// <summary>
+/// Simple gyro car controller.
+///
+/// Controls:
+///   GAS pedal   -> accelerate forward (in D) or backward (in R)
+///   BRAKE pedal -> slow down and stop
+///   Gyroscope   -> steer left / right only (never throttle)
+///   Lever       -> R / N / D automatic transmission
+/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class GyroCarController : MonoBehaviour
 {
-    [Header("Car Settings")]
+    public enum TransmissionGear
+    {
+        Reverse,
+        Neutral,
+        Drive
+    }
+
+    [Header("Driving")]
     [Min(1f)] public float maxSpeed = 10f;
-    [Min(0f)] public float acceleration = 5f;
-    [Min(0f)] public float turnSpeed = 80f;
-    [Min(1f)] public float driveResponseMultiplier = 2f;
+    [Min(0f)] public float acceleration = 15f;
+    [Min(0f)] public float brakeDeceleration = 16f;
+    [Min(0f)] public float coastDeceleration = 3f;
+    [Min(0f)] public float turnSpeed = 90f;
+    [Range(0f, 1f)] public float highSpeedSteering = 0.65f;
     public float centerOfMassOffset = -0.5f;
-    [Min(0f)] public float downForce = 10f;
 
-    [Tooltip("How quickly the car slows down when no throttle is applied, in m/s².")]
-    [Min(0f)] public float coastDeceleration = 2.5f;
+    [Tooltip("Acceleration multiplier by current speed. The curve starts strong and eases off near the speed limit.")]
+    public AnimationCurve accelerationBySpeed = new AnimationCurve(
+        new Keyframe(0f, 1f),
+        new Keyframe(0.65f, 0.55f),
+        new Keyframe(1f, 0.12f));
 
-    [Header("Gyroscope Settings")]
+    [Header("Gyroscope Steering")]
     public bool useGyroscope = true;
-    [Min(0.1f)] public float gyroSteerSensitivity = 1f;
-    [Min(0.1f)] public float gyroAccelSensitivity = 0.8f;
-    [Range(0.1f, 1f)] public float steeringResponseMultiplier = 0.5f;
-    [Min(0.1f)] public float steeringSmoothing = 5f;
-    [Range(0f, 0.5f)] public float gyroDeadZone = 0.1f;
-    [Range(5f, 60f)] public float tiltAngleForFullInput = 35f;
 
-    [Header("Calibration")]
-    public bool calibrateOnStart = true;
+    [Tooltip("Tilt in degrees that gives full steering lock.")]
+    [Min(5f)] public float fullSteerAngle = 30f;
+
+    [Tooltip("Small tilts inside this angle do not steer the car at all.")]
+    [Range(0f, 20f)] public float steerDeadZone = 6f;
+
+    [Tooltip("Extra angle before steering re-engages, so it does not flicker at the edge.")]
+    [Range(0f, 10f)] public float steerHysteresis = 2f;
+
+    [Tooltip("Higher values make small tilts gentler while full tilt still gives full steering.")]
+    [Range(1f, 3f)] public float steerExponent = 1.4f;
+
+    [Min(0.1f)] public float steerSmoothing = 8f;
 
     [Tooltip("Invert steering if tilting left turns right.")]
     public bool invertSteering = false;
 
-    [Tooltip("Invert acceleration if tilting forward gives reverse.")]
-    public bool invertAcceleration = false;
+    [Header("Transmission")]
+    public TransmissionGear selectedGear = TransmissionGear.Drive;
+    [Min(0f)] public float gearChangeStopSpeed = 0.3f;
 
-    [Header("Debug")]
-    public bool showDebugOverlay = true;
-    public bool logInput = true;
-    [Range(0.1f, 5f)] public float logInterval = 1f;
-
-    [Header("Orientation")]
-    public ScreenOrientation lockedOrientation = ScreenOrientation.LandscapeLeft; // or LandscapeRight
-    private bool calibrating;
+    [Header("Calibration")]
+    public bool calibrateOnStart = true;
+    public ScreenOrientation lockedOrientation = ScreenOrientation.LandscapeLeft;
 
     private Rigidbody rb;
-    private bool gyroEnabled;
-    private bool calibrated;
-    private AttitudeSensor attitudeSensor;
-    private InputSystemGyroscope gyroscope;
 
-    private Quaternion initialRotation;
+    private AttitudeSensor attitudeSensor;
+    private bool gyroReady;
+    private bool calibrated;
+    private bool calibrating;
+    private Quaternion neutralRotation;
+
+    // Pedals (set by DriveControlsUI) and keyboard fallback.
+    private float pedalGas;
+    private float pedalBrake;
+    private float keyboardGas;
+    private float keyboardBrake;
 
     private float steerInput;
-    private float accelerateInput;
-    private float steeringVelocity;
+    private float steerVelocity;
+    private bool insideSteerDeadZone = true;
 
-    private Vector3 rawGyroAngles;
-    private float pitch;
-    private float roll;
+    public TransmissionGear CurrentGear => selectedGear;
+    public float CurrentSpeed => rb != null ? rb.linearVelocity.magnitude : 0f;
+    public bool HasGyroscope => gyroReady;
 
-    private string inputSource = "Initializing";
-    private Quaternion rawGyroAttitude;
-    private Vector3 rawRotationRate;
-    
-    private float lastLogTime;
-    private bool movementDiagnosticLogged;
+    // ------------------------------------------------------------------
+    // Setup
+    // ------------------------------------------------------------------
 
-
-    void Awake()
+    private void Awake()
     {
         Screen.orientation = lockedOrientation;
-        // We map axes for landscape ourselves, so stop the Input System from rotating them.
+
+        // We handle landscape axes ourselves in ReadDeviceRotation().
         InputSystem.settings.compensateForScreenOrientation = false;
-        
+
         rb = GetComponent<Rigidbody>();
-        maxSpeed = Mathf.Max(maxSpeed, 1f);
-        acceleration = Mathf.Max(acceleration, 0.1f);
 
-        if (rb != null)
-        {
-            rb.centerOfMass = new Vector3(0f, centerOfMassOffset, 0f);
+        // The car felt too slow, so run everything 3x faster. The demo scene
+        // still stores the original slower values, so scale them at runtime.
+        maxSpeed *= 3f;
+        acceleration = Mathf.Max(acceleration, 15f) * 3f;
 
-            // Keep the car upright while allowing yaw steering around the Y axis.
-            rb.constraints = RigidbodyConstraints.FreezeRotationX |
-                             RigidbodyConstraints.FreezeRotationZ;
+        rb.centerOfMass = new Vector3(0f, centerOfMassOffset, 0f);
+        rb.constraints = RigidbodyConstraints.FreezeRotationX |
+                         RigidbodyConstraints.FreezeRotationZ;
 
-            if (rb.isKinematic)
-            {
-                Debug.LogWarning("[GyroCarController] Rigidbody was kinematic. Switching it to dynamic for car physics.");
-                rb.isKinematic = false;
-            }
-        }
+        if (rb.isKinematic)
+            rb.isKinematic = false;
     }
 
-    void Start()
+    private void Start()
     {
         InputSystem.onDeviceChange += OnDeviceChange;
         InitializeGyroscope();
-        
-        lastLogTime = Time.time;
     }
-    
+
+    private void OnDestroy()
+    {
+        InputSystem.onDeviceChange -= OnDeviceChange;
+    }
+
     private void InitializeGyroscope()
     {
         attitudeSensor = AttitudeSensor.current;
-        gyroscope = InputSystemGyroscope.current;
 
-        if (!useGyroscope || attitudeSensor == null)
+        gyroReady = useGyroscope && attitudeSensor != null;
+
+        if (!gyroReady)
         {
-            gyroEnabled = false;
-            inputSource = "Keyboard";
-
-            Debug.LogWarning(
-                $"[GyroCarController] Attitude sensor unavailable or disabled. " +
-                $"useGyroscope={useGyroscope}, AttitudeSensor.current={(attitudeSensor != null ? "available" : "null")}. " +
-                "Using keyboard controls."
-            );
+            Debug.LogWarning("[GyroCarController] Gyroscope unavailable. Use A / D or arrow keys to steer.");
             return;
         }
 
         InputSystem.EnableDevice(attitudeSensor);
-        gyroEnabled = attitudeSensor.enabled;
-        inputSource = gyroEnabled ? "AttitudeSensor" : "Keyboard";
+        gyroReady = attitudeSensor.enabled;
 
-        // Calibrate with delay to let sensor stabilize
-        if (gyroEnabled && calibrateOnStart)
-        {
-            CalibrateGyroscope();
-        }
-
-        Debug.Log(
-            $"[GyroCarController] AttitudeSensor initialized. Enabled: {gyroEnabled}, " +
-            $"Gyroscope fallback: {(gyroscope != null ? "available" : "unavailable")}"
-        );
-    }
-    
-    // Called by AndroidPermissionRequester when permission is granted
-    public void OnPermissionGranted()
-    {
-        Debug.Log("[GyroCarController] Permission callback received - checking Input System sensors");
-        InitializeGyroscope();
+        if (gyroReady && calibrateOnStart)
+            Recalibrate();
     }
 
     private void OnDeviceChange(InputDevice device, InputDeviceChange change)
-{
-    if (device is AttitudeSensor && !gyroEnabled &&
-        (change == InputDeviceChange.Added || change == InputDeviceChange.Reconnected))
+    {
+        if (device is AttitudeSensor &&
+            (change == InputDeviceChange.Added || change == InputDeviceChange.Reconnected))
+        {
+            InitializeGyroscope();
+        }
+    }
+
+    // Called by AndroidPermissionRequester once sensor permission is granted.
+    public void OnPermissionGranted()
     {
         InitializeGyroscope();
     }
-}
 
-    void OnDestroy()
+    private void OnApplicationFocus(bool hasFocus)
     {
-        InputSystem.onDeviceChange -= OnDeviceChange;
-    }
-    
-    void OnApplicationFocus(bool hasFocus)
-    {
-        // Re-enable gyro when app regains focus (Android lifecycle)
-        if (hasFocus && gyroEnabled && attitudeSensor != null)
+        if (hasFocus && attitudeSensor != null && useGyroscope)
         {
             InputSystem.EnableDevice(attitudeSensor);
-            Debug.Log("[GyroCarController] App focused - AttitudeSensor re-enabled");
+            gyroReady = attitudeSensor.enabled;
         }
     }
-    
-    void OnApplicationPause(bool isPaused)
+
+    private void OnApplicationPause(bool paused)
     {
-        // Handle app pause/resume (Android)
-        if (!isPaused && gyroEnabled && attitudeSensor != null)
+        if (!paused && attitudeSensor != null && useGyroscope)
         {
             InputSystem.EnableDevice(attitudeSensor);
-            Debug.Log("[GyroCarController] App resumed - AttitudeSensor re-enabled");
+            gyroReady = attitudeSensor.enabled;
         }
     }
 
-    void Update()
+    // ------------------------------------------------------------------
+    // Public control API (used by DriveControlsUI)
+    // ------------------------------------------------------------------
+
+    public void SetPedalInput(float gas, float brake)
     {
-        // Process input every frame for responsiveness
-        if (gyroEnabled && attitudeSensor != null && attitudeSensor.enabled)
-        {
-            if (!calibrated && !calibrating)
-                CalibrateGyroscope();
-
-            // Read raw sensor data
-            rawGyroAttitude = attitudeSensor.attitude.ReadValue();
-            rawRotationRate = gyroscope != null
-                ? gyroscope.angularVelocity.ReadValue()
-                : Vector3.zero;
-            
-            // Check if sensor is actually providing data
-            if (rawGyroAttitude.x == 0 && rawGyroAttitude.y == 0 && 
-                rawGyroAttitude.z == 0 && rawGyroAttitude.w == 0)
-            {
-                // Sensor not providing data - try re-enabling
-                InputSystem.EnableDevice(attitudeSensor);
-            }
-            
-            // Filter only gyro steering so hand movement does not cause abrupt turns.
-            GetGyroInput(out float targetSteer, out accelerateInput);
-            steerInput = Mathf.SmoothDamp(
-                steerInput,
-                targetSteer,
-                ref steeringVelocity,
-                1f / steeringSmoothing
-            );
-        }
-        else
-        {
-            if (gyroEnabled && (attitudeSensor == null || !attitudeSensor.enabled))
-            {
-                gyroEnabled = false;
-                inputSource = "Keyboard";
-                Debug.LogWarning("[GyroCarController] AttitudeSensor is unavailable or disabled. Falling back to keyboard.");
-            }
-
-            GetKeyboardInput(out steerInput, out accelerateInput);
-            steeringVelocity = 0f;
-        }
-
-        // Controlled logging (always log when sensor seems stuck at zero)
-        if (logInput && Time.time - lastLogTime >= logInterval)
-        {
-            lastLogTime = Time.time;
-            
-            Debug.Log(
-                $"[GyroCarController] Source: {inputSource} | " +
-                $"Raw Quat: ({rawGyroAttitude.x:F3}, {rawGyroAttitude.y:F3}, {rawGyroAttitude.z:F3}, {rawGyroAttitude.w:F3}) | " +
-                $"Calibrated: {calibrated} | " +
-                $"Pitch: {pitch:F1}° | Roll: {roll:F1}° | " +
-                $"Steer: {steerInput:F2} | Accel: {accelerateInput:F2} | " +
-                $"Speed: {(rb != null ? rb.linearVelocity.magnitude.ToString("F1") : "N/A")}"
-            );
-        }
+        pedalGas = Mathf.Clamp01(gas);
+        pedalBrake = Mathf.Clamp01(brake);
     }
 
-    void FixedUpdate()
+    public void ClearPedalInput()
     {
-        if (rb == null)
-            return;
+        pedalGas = 0f;
+        pedalBrake = 0f;
+    }
 
-        ApplyMovement(steerInput, accelerateInput);
+    public bool SetReverse() => TrySetGear(TransmissionGear.Reverse);
+    public bool SetNeutral() => TrySetGear(TransmissionGear.Neutral);
+    public bool SetDrive() => TrySetGear(TransmissionGear.Drive);
 
-        // Apply downforce only while moving.
-        if (downForce > 0f)
+    public void ForceRecalibrate() => Recalibrate();
+
+    private bool TrySetGear(TransmissionGear gear)
+    {
+        if (gear == selectedGear)
+            return true;
+
+        if (CurrentSpeed > gearChangeStopSpeed)
         {
-            rb.AddForce(
-                -transform.up * downForce * rb.linearVelocity.magnitude,
-                ForceMode.Force
-            );
-        }
-    }
-
-    public void CalibrateGyroscope()
-{
-    if (calibrating) return;
-    if (!useGyroscope) return;
-
-    attitudeSensor = AttitudeSensor.current;
-    if (attitudeSensor == null)
-    {
-        gyroEnabled = false;
-        inputSource = "Keyboard";
-        return;
-    }
-
-    InputSystem.EnableDevice(attitudeSensor);
-    gyroEnabled = attitudeSensor.enabled;
-    StartCoroutine(CalibrateAfterDelay());
-}
-
-private System.Collections.IEnumerator CalibrateAfterDelay()
-{
-    calibrating = true;
-    yield return new WaitForSeconds(0.5f);   // let the orientation lock and sensor settle
-    initialRotation = GetDeviceRotation();
-    calibrated = true;
-    calibrating = false;
-    Debug.Log($"[GyroCarController] Calibrated. Neutral: {initialRotation}");
-}
-    // Public method to manually recalibrate (can be called from UI button)
-    public void ForceRecalibrate()
-    {
-        calibrated = false;
-        CalibrateGyroscope();
-        Debug.Log("[GyroCarController] Manual recalibration triggered.");
-    }
-
-    Quaternion GetDeviceRotation()
-    {
-        if (attitudeSensor == null)
-            return Quaternion.identity;
-
-        Quaternion attitude = attitudeSensor.attitude.ReadValue();
-
-        // Input System reports Android attitude in sensor coordinates. Convert it
-        // to Unity coordinates while leaving screen-orientation compensation off.
-        return new Quaternion(
-            attitude.x,
-            attitude.y,
-            -attitude.z,
-            -attitude.w
-        );
-    }
-
-    void GetGyroInput(out float steer, out float accelerate)
-    {
-        steer = 0f;
-        accelerate = 0f;
-
-        if (!calibrated)
-        {
-            // Will auto-calibrate on next frame
-            return;
+            Debug.Log("[GyroCarController] Stop the car before changing gear.");
+            return false;
         }
 
-        // Check if attitude quaternion is actually working
-        bool attitudeValid = !(rawGyroAttitude.x == 0 && rawGyroAttitude.y == 0 && 
-                               rawGyroAttitude.z == 0 && rawGyroAttitude.w == 0);
-
-        if (!attitudeValid)
-        {
-            // Fallback: Use rotation rate instead of attitude
-            // This is less accurate but better than nothing
-            roll = rawRotationRate.y * gyroSteerSensitivity * 30f; // Integrate rotation rate
-            pitch = -rawRotationRate.x * gyroAccelSensitivity * 30f;
-            
-            steer = Mathf.Clamp(roll, -1f, 1f);
-            accelerate = pitch > -20f ? 1f : pitch < -20f ? -1f : 0f;
-            
-            if (Time.frameCount % 120 == 0) // Log occasionally
-            {
-                Debug.LogWarning($"[GyroCarController] Using rotation rate fallback. Attitude stuck at zero.");
-            }
-        }
-        else
-        {
-            // Normal attitude-based processing
-            Quaternion currentRotation = GetDeviceRotation();
-
-            // Rotation relative to the calibrated neutral pose, expressed in the
-            // device's own axes. The Input System already compensates those axes for
-            // screen orientation, so we must NOT rotate them again here.
-            Quaternion relativeRotation =
-                Quaternion.Inverse(initialRotation) * currentRotation;
-
-            // Steering: rotation about the screen normal (local Z). The follow camera
-            // sits behind the car, so tilt-left is negated to steer left on screen.
-            Vector3 rotatedRight = relativeRotation * Vector3.right;
-            roll = Mathf.Atan2(rotatedRight.y, rotatedRight.x) * Mathf.Rad2Deg;
-
-            // Acceleration: with compensation off, device axes remain portrait axes.
-            // LandscapeLeft maps screen-up to device +X; LandscapeRight maps it to -X.
-            Vector3 rotatedNormal = relativeRotation * Vector3.forward;
-            float upSign = Screen.orientation == ScreenOrientation.LandscapeRight ? -1f : 1f;
-            pitch = Mathf.Atan2(-upSign * rotatedNormal.x, rotatedNormal.z) * Mathf.Rad2Deg;
-
-            rawGyroAngles = new Vector3(pitch, 0f, roll);
-
-            // Map roll (left/right tilt) to steering. Negated because the camera is
-            // behind the car, which mirrors the on-screen direction.
-            steer = Mathf.Clamp(
-                -roll / tiltAngleForFullInput * gyroSteerSensitivity * steeringResponseMultiplier,
-                -1f,
-                1f
-            );
-
-            // Use the observed pitch threshold as a simple forward/reverse selector.
-            accelerate = pitch > -20f ? 1f : pitch < -20f ? -1f : 0f;
-        }
-
-        // Apply optional inversions
-        if (invertSteering)
-            steer = -steer;
-
-        if (invertAcceleration)
-            accelerate = -accelerate;
-
-        // Apply dead zones to reduce jitter
-        if (Mathf.Abs(steer) < gyroDeadZone)
-            steer = 0f;
-
-        if (Mathf.Abs(accelerate) < gyroDeadZone)
-            accelerate = 0f;
+        selectedGear = gear;
+        Debug.Log($"[GyroCarController] Gear: {selectedGear}");
+        return true;
     }
 
-    void GetKeyboardInput(
-        out float steer,
-        out float accelerate)
-    {
-        steer = 0f;
-        accelerate = 0f;
+    // ------------------------------------------------------------------
+    // Per-frame input
+    // ------------------------------------------------------------------
 
+    private void Update()
+    {
+        ReadKeyboardInput();
+        ReadGearKeys();
+
+        if (gyroReady && attitudeSensor != null && attitudeSensor.enabled &&
+            !calibrated && !calibrating)
+        {
+            Recalibrate();
+        }
+
+        steerInput = ComputeSteering();
+    }
+
+    private void ReadKeyboardInput()
+    {
         Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+        {
+            keyboardGas = 0f;
+            keyboardBrake = 0f;
+            return;
+        }
 
+        keyboardGas =
+            keyboard.upArrowKey.isPressed ||
+            keyboard.wKey.isPressed ||
+            keyboard.zKey.isPressed ? 1f : 0f;
+
+        keyboardBrake =
+            keyboard.downArrowKey.isPressed ||
+            keyboard.sKey.isPressed ||
+            keyboard.spaceKey.isPressed ? 1f : 0f;
+    }
+
+    private void ReadGearKeys()
+    {
+        Keyboard keyboard = Keyboard.current;
         if (keyboard == null)
             return;
+
+        // 1 = R, 2 = N, 3 = D. The letter D is left for steering.
+        if (keyboard.digit1Key.wasPressedThisFrame || keyboard.rKey.wasPressedThisFrame)
+            SetReverse();
+        else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.nKey.wasPressedThisFrame)
+            SetNeutral();
+        else if (keyboard.digit3Key.wasPressedThisFrame)
+            SetDrive();
+    }
+
+    // ------------------------------------------------------------------
+    // Steering
+    // ------------------------------------------------------------------
+
+    private float ComputeSteering()
+    {
+        float target;
+
+        if (gyroReady && attitudeSensor != null && attitudeSensor.enabled)
+        {
+            target = GetGyroSteering();
+        }
+        else
+        {
+            target = GetKeyboardSteering();
+            insideSteerDeadZone = Mathf.Abs(target) < 0.01f;
+            steerVelocity = 0f;
+        }
+
+        return Mathf.SmoothDamp(
+            steerInput,
+            target,
+            ref steerVelocity,
+            1f / steerSmoothing,
+            Mathf.Infinity,
+            Time.deltaTime);
+    }
+
+    private float GetKeyboardSteering()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null)
+            return 0f;
+
+        float steer = 0f;
 
         if (keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed || keyboard.qKey.isPressed)
             steer -= 1f;
@@ -404,195 +309,207 @@ private System.Collections.IEnumerator CalibrateAfterDelay()
         if (keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed)
             steer += 1f;
 
-        if (keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed || keyboard.zKey.isPressed)
-            accelerate += 1f;
-
-        if (keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed)
-            accelerate -= 1f;
+        return invertSteering ? -steer : steer;
     }
 
-    void ApplyMovement(float steer, float accelerate)
+    private float GetGyroSteering()
     {
-        Vector3 driveDirection = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
-        if (driveDirection.sqrMagnitude < 0.001f)
-            driveDirection = transform.forward;
-        else
-            driveDirection.Normalize();
+        if (!calibrated)
+            return 0f;
 
-        // Speed along the car's forward direction.
-        float currentSpeed = Vector3.Dot(
-            rb.linearVelocity,
-            driveDirection
-        );
+        Quaternion current = ReadDeviceRotation();
+        Quaternion relative = Quaternion.Inverse(neutralRotation) * current;
 
-        if (Mathf.Abs(accelerate) > 0.001f)
+        // Tilt around the screen normal = left / right roll.
+        Vector3 right = relative * Vector3.right;
+        float roll = Mathf.Atan2(right.y, right.x) * Mathf.Rad2Deg;
+
+        return RollToSteering(roll);
+    }
+
+    /// <summary>
+    /// Turns a left/right tilt into steering. Small tilts stay inside a safe
+    /// gap and do not affect the car at all.
+    /// </summary>
+    private float RollToSteering(float rollDegrees)
+    {
+        float magnitude = Mathf.Abs(rollDegrees);
+        float enterGap = Mathf.Max(0f, steerDeadZone);
+        float exitGap = enterGap + Mathf.Max(0f, steerHysteresis);
+
+        if (insideSteerDeadZone)
         {
-            float nextSpeed = currentSpeed +
-                              accelerate * acceleration * driveResponseMultiplier * Time.fixedDeltaTime;
-            nextSpeed = accelerate > 0f
-                ? Mathf.Min(nextSpeed, maxSpeed)
-                : Mathf.Max(nextSpeed, -maxSpeed * 0.5f);
-
-            // Preserve lateral and vertical Rigidbody velocity while setting the
-            // longitudinal speed commanded by the input. Setting linearVelocity is
-            // enough; also calling MovePosition would move the car twice per step.
-            Vector3 nonDriveVelocity = rb.linearVelocity - driveDirection * currentSpeed;
-            Vector3 nextVelocity = nonDriveVelocity + driveDirection * nextSpeed;
-            rb.linearVelocity = nextVelocity;
-
-            LogMovementDiagnostic(driveDirection, accelerate);
+            if (magnitude >= exitGap)
+                insideSteerDeadZone = false;
         }
-        else if (coastDeceleration > 0f)
+        else if (magnitude <= enterGap)
         {
-            // Ease off smoothly when the throttle is released instead of letting
-            // the car roll forever.
-            float nextSpeed = Mathf.MoveTowards(
-                currentSpeed,
-                0f,
-                coastDeceleration * Time.fixedDeltaTime);
+            insideSteerDeadZone = true;
+        }
 
-            if (!Mathf.Approximately(nextSpeed, currentSpeed))
+        if (insideSteerDeadZone)
+            return 0f;
+
+        float usableRange = Mathf.Max(0.01f, fullSteerAngle - enterGap);
+        float amount = Mathf.Clamp01((magnitude - enterGap) / usableRange);
+        amount = Mathf.Pow(amount, Mathf.Max(1f, steerExponent));
+
+        float steer = -Mathf.Sign(rollDegrees) * amount;
+
+        return invertSteering ? -steer : steer;
+    }
+
+    private Quaternion ReadDeviceRotation()
+    {
+        if (attitudeSensor == null)
+            return Quaternion.identity;
+
+        Quaternion attitude = attitudeSensor.attitude.ReadValue();
+
+        // Convert Android sensor axes to Unity axes.
+        return new Quaternion(attitude.x, attitude.y, -attitude.z, -attitude.w);
+    }
+
+    // ------------------------------------------------------------------
+    // Calibration
+    // ------------------------------------------------------------------
+
+    private void Recalibrate()
+    {
+        if (calibrating || !gyroReady)
+            return;
+
+        StartCoroutine(CalibrationRoutine());
+    }
+
+    private IEnumerator CalibrationRoutine()
+    {
+        calibrating = true;
+        calibrated = false;
+
+        // Let the device settle before capturing the neutral pose.
+        yield return new WaitForSeconds(0.5f);
+
+        neutralRotation = ReadDeviceRotation();
+        calibrated = true;
+        calibrating = false;
+        insideSteerDeadZone = true;
+
+        Debug.Log($"[GyroCarController] Gyroscope calibrated: {neutralRotation.eulerAngles}");
+    }
+
+    // ------------------------------------------------------------------
+    // Movement
+    // ------------------------------------------------------------------
+
+    private void FixedUpdate()
+    {
+        if (rb == null)
+            return;
+
+        float gas = Mathf.Max(pedalGas, keyboardGas);
+        float brake = Mathf.Max(pedalBrake, keyboardBrake);
+
+        ApplyMovement(gas, brake);
+    }
+
+    private void ApplyMovement(float gas, float brake)
+    {
+        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        if (forward.sqrMagnitude < 0.001f)
+            forward = transform.forward;
+        forward.Normalize();
+
+        // Current speed along the car's forward axis.
+        float speed = Vector3.Dot(rb.linearVelocity, forward);
+
+        if (brake > 0.001f)
+        {
+            // Brake always slows toward zero; it never reverses the car.
+            speed = Mathf.MoveTowards(
+                speed, 0f, brakeDeceleration * brake * Time.fixedDeltaTime);
+
+            Vector3 lateral = rb.linearVelocity - forward * Vector3.Dot(rb.linearVelocity, forward);
+            rb.linearVelocity = lateral + forward * speed;
+        }
+        else
+        {
+            float throttle = GetGearThrottle(gas);
+
+            if (Mathf.Abs(throttle) > 0.001f)
             {
-                Vector3 nonDriveVelocity = rb.linearVelocity - driveDirection * currentSpeed;
-                rb.linearVelocity = nonDriveVelocity + driveDirection * nextSpeed;
+                // Use a real force instead of writing linearVelocity directly.
+                // Writing a tiny velocity every physics step is cancelled by
+                // tyre friction and the car never pulls away.
+                float speedLimit = throttle < 0f ? maxSpeed * 0.5f : maxSpeed;
+                float speedRatio = Mathf.Clamp01(Mathf.Abs(speed) / speedLimit);
+                float accelerationFactor = accelerationBySpeed == null
+                    ? 1f
+                    : Mathf.Max(0f, accelerationBySpeed.Evaluate(speedRatio));
+
+                rb.AddForce(
+                    forward * (throttle * acceleration * accelerationFactor),
+                    ForceMode.Acceleration);
+                ClampSpeed(forward);
+            }
+            else if (coastDeceleration > 0f)
+            {
+                speed = Mathf.MoveTowards(
+                    speed, 0f, coastDeceleration * Time.fixedDeltaTime);
+
+                Vector3 lateral = rb.linearVelocity - forward * Vector3.Dot(rb.linearVelocity, forward);
+                rb.linearVelocity = lateral + forward * speed;
             }
         }
 
-        // Steering is allowed even when stationary, so it is easier
-        // to test whether steering input is being received.
-        if (Mathf.Abs(steer) > 0.001f)
+        ApplySteering(speed);
+    }
+
+    private void ClampSpeed(Vector3 forward)
+    {
+        float speed = Vector3.Dot(rb.linearVelocity, forward);
+        float limited = Mathf.Clamp(speed, -maxSpeed * 0.5f, maxSpeed);
+
+        if (Mathf.Approximately(speed, limited))
+            return;
+
+        Vector3 lateral = rb.linearVelocity - forward * speed;
+        rb.linearVelocity = lateral + forward * limited;
+    }
+
+    /// <summary>Gas in Drive is forward, gas in Reverse is backward, Neutral is idle.</summary>
+    private float GetGearThrottle(float gas)
+    {
+        gas = Mathf.Clamp01(gas);
+
+        switch (selectedGear)
         {
-            float direction = currentSpeed < -0.1f ? -1f : 1f;
-
-            // Reduce steering authority as speed rises so the car stays stable
-            // instead of spinning out at the new top speed.
-            float speedRatio = Mathf.Clamp01(
-                Mathf.Abs(currentSpeed) / Mathf.Max(maxSpeed, 0.01f));
-            float highSpeedSteering = Mathf.Lerp(1f, 0.7f, speedRatio);
-
-            float turnAmount =
-                steer * turnSpeed * highSpeedSteering * direction * Time.fixedDeltaTime;
-
-            Quaternion turnRotation = Quaternion.Euler(
-                0f,
-                turnAmount,
-                0f
-            );
-
-            rb.MoveRotation(rb.rotation * turnRotation);
+            case TransmissionGear.Drive:
+                return gas;
+            case TransmissionGear.Reverse:
+                return -gas;
+            default:
+                return 0f;
         }
     }
 
-    private void LogMovementDiagnostic(Vector3 driveDirection, float accelerate)
+    private void ApplySteering(float speed)
     {
-        if (movementDiagnosticLogged)
+        if (Mathf.Abs(steerInput) < 0.001f)
             return;
 
-        movementDiagnosticLogged = true;
-        Debug.Log(
-            $"[GyroCarController] Movement speed applied. " +
-            $"Accel: {accelerate:F2}, Direction: {driveDirection}, " +
-            $"IsKinematic: {rb.isKinematic}, Constraints: {rb.constraints}, " +
-            $"Mass: {rb.mass:F1}"
-        );
-    }
-
-    void OnGUI()
-    {
-        if (!showDebugOverlay)
+        // Do not spin the car while it is standing still.
+        if (Mathf.Abs(speed) < 0.05f)
             return;
 
-        GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.fontSize = 18;
-        style.normal.textColor = Color.yellow;
-        style.normal.background = MakeTex(2, 2, new Color(0, 0, 0, 0.8f));
-        style.padding = new RectOffset(10, 10, 5, 5);
+        // Reverse steering direction while backing up.
+        float direction = speed < 0f ? -1f : 1f;
 
-        // Check if attitude is stuck at zero
-        bool attitudeStuck = (rawGyroAttitude.x == 0 && rawGyroAttitude.y == 0 && 
-                              rawGyroAttitude.z == 0 && rawGyroAttitude.w == 0);
-        
-        string statusIcon = attitudeStuck ? "⚠️" : "✓";
-        Color statusColor = attitudeStuck ? Color.red : Color.green;
+        // Less steering at high speed keeps the car stable.
+        float speedRatio = Mathf.Clamp01(Mathf.Abs(speed) / maxSpeed);
+        float authority = Mathf.Lerp(1f, highSpeedSteering, speedRatio);
 
-        string info =
-            "=== GYRO CAR DEBUG ===\n" +
-            $"Attitude Sensor Available: {attitudeSensor != null}\n" +
-            $"Gyro Enabled: {gyroEnabled}\n" +
-            $"Calibrated: {calibrated}\n" +
-            $"Input Source: {inputSource}\n" +
-            $"Sensor Status: {statusIcon} {(attitudeStuck ? "STUCK AT ZERO!" : "Working")}\n" +
-            "---\n" +
-            $"Raw Attitude: x={rawGyroAttitude.x:F3}, y={rawGyroAttitude.y:F3}, z={rawGyroAttitude.z:F3}, w={rawGyroAttitude.w:F3}\n" +
-            $"Rotation Rate: x={rawRotationRate.x:F2}, y={rawRotationRate.y:F2}, z={rawRotationRate.z:F2}\n" +
-            (calibrated ? $"Initial Rot: {initialRotation}\n" : "Waiting for calibration...\n") +
-            "---\n" +
-            $"Pitch (fwd/back): {pitch:F1}°\n" +
-            $"Roll (left/right): {roll:F1}°\n" +
-            "---\n" +
-            $"Steering Input: {steerInput:F2}\n" +
-            $"Acceleration Input: {accelerateInput:F2}\n" +
-            "---\n" +
-            $"Speed: {(rb != null ? rb.linearVelocity.magnitude.ToString("F2") : "N/A")} m/s\n" +
-            $"Velocity: {(rb != null ? rb.linearVelocity.ToString("F1") : "N/A")}\n" +
-            "---\n" +
-            $"Frame: {Time.frameCount}";
-
-        GUI.Label(
-            new Rect(10f, 10f, 700f, 500f),
-            info,
-            style
-        );
-        
-        // Add warning if sensor stuck
-        if (attitudeStuck)
-        {
-            GUIStyle warningStyle = new GUIStyle(GUI.skin.label);
-            warningStyle.fontSize = 24;
-            warningStyle.normal.textColor = Color.red;
-            warningStyle.fontStyle = FontStyle.Bold;
-            warningStyle.normal.background = MakeTex(2, 2, new Color(0, 0, 0, 0.9f));
-            warningStyle.padding = new RectOffset(20, 20, 10, 10);
-            warningStyle.alignment = TextAnchor.MiddleCenter;
-            
-            GUI.Label(
-                new Rect(10f, Screen.height - 100f, Screen.width - 20f, 80f),
-                "⚠️ GYROSCOPE SENSOR NOT RESPONDING\nTry: Shake device, restart app, or check permissions",
-                warningStyle
-            );
-        }
-    }
-
-    private Texture2D MakeTex(int width, int height, Color col)
-    {
-        Color[] pix = new Color[width * height];
-        for (int i = 0; i < pix.Length; i++)
-            pix[i] = col;
-
-        Texture2D result = new Texture2D(width, height);
-        result.SetPixels(pix);
-        result.Apply();
-
-        return result;
-    }
-
-    void OnDrawGizmosSelected()
-    {
-        Rigidbody body = GetComponent<Rigidbody>();
-
-        if (body == null)
-            return;
-
-        Gizmos.color = Color.red;
-        Gizmos.DrawSphere(
-            transform.TransformPoint(body.centerOfMass),
-            0.2f
-        );
-
-        Gizmos.color = Color.blue;
-        Gizmos.DrawRay(
-            transform.position,
-            transform.forward * 3f
-        );
+        float turn = steerInput * turnSpeed * authority * direction * Time.fixedDeltaTime;
+        rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turn, 0f));
     }
 }
