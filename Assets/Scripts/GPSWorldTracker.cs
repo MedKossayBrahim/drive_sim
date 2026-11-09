@@ -308,7 +308,7 @@ public class GPSWorldTracker : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void EnsureInstanceExists()
     {
-        if (FindFirstObjectByType<GPSWorldTracker>() != null)
+        if (FindAnyObjectByType<GPSWorldTracker>() != null)
             return;
 
         GameObject host = new GameObject("GPSWorldTracker (auto)");
@@ -323,7 +323,7 @@ public class GPSWorldTracker : MonoBehaviour
     {
         if (movementTarget == null)
         {
-            GyroCarController car = FindFirstObjectByType<GyroCarController>();
+            GyroCarController car = FindAnyObjectByType<GyroCarController>();
 
             if (car != null)
             {

@@ -93,6 +93,8 @@ namespace DriveSim.Submarine
 
         Material BuildMaterial()
         {
+            // Sur device, Shader.Find ne trouve que les shaders inclus au build
+            // (voir Always Included Shaders dans GraphicsSettings).
             var shader = Shader.Find("DriveSim/HeadlightBeam");
             if (shader == null)
             {

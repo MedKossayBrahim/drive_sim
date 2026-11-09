@@ -145,7 +145,7 @@ namespace DriveSim.Submarine
         void Awake()
         {
             _controller = GetComponent<SubmarineController>();
-            if (_controller == null) _controller = FindFirstObjectByType<SubmarineController>();
+            if (_controller == null) _controller = FindAnyObjectByType<SubmarineController>();
 
             if (zones != null && zones.Length > 0)
             {
@@ -166,7 +166,7 @@ namespace DriveSim.Submarine
         void ResolvePostProcessing()
         {
             if (postProcessVolume == null)
-                postProcessVolume = FindFirstObjectByType<Volume>();
+                postProcessVolume = FindAnyObjectByType<Volume>();
 
             if (postProcessVolume != null && postProcessVolume.sharedProfile != null)
             {
@@ -180,7 +180,7 @@ namespace DriveSim.Submarine
         {
             if (_controller == null)
             {
-                _controller = FindFirstObjectByType<SubmarineController>();
+                _controller = FindAnyObjectByType<SubmarineController>();
                 if (_controller == null) return;
             }
 

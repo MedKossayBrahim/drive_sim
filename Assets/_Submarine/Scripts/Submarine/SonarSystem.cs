@@ -218,6 +218,7 @@ namespace DriveSim.Submarine
         }
     }
 
+    [System.Serializable]
     public class SonarContact
     {
         public Vector3 position;

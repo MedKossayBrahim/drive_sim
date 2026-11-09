@@ -52,7 +52,7 @@ namespace DriveSim.Submarine
             _audioSource.maxDistance = beaconRange;
             _audioSource.rolloffMode = AudioRolloffMode.Linear;
 
-            _gameManager = FindFirstObjectByType<GameManager>();
+            _gameManager = FindAnyObjectByType<GameManager>();
         }
 
         void Update()
@@ -73,7 +73,7 @@ namespace DriveSim.Submarine
 
             // Distance-based intensity boost: brighter when submarine is closer
             float distBoost = 1f;
-            var sub = FindFirstObjectByType<SubmarineController>();
+            var sub = FindAnyObjectByType<SubmarineController>();
             if (sub != null)
             {
                 float dist = Vector3.Distance(transform.position, sub.transform.position);

@@ -169,19 +169,19 @@ public sealed class ObstacleSpawner : MonoBehaviour
     {
         float x = (lane - 2) * LaneSpacing;
         Vector3 candidate = new Vector3(x, 0.45f, z);
-        foreach (var hazard in FindObjectsByType<Obstacle>(FindObjectsSortMode.None))
+        foreach (var hazard in FindObjectsByType<Obstacle>())
         {
             var collider = hazard.GetComponent<Collider>();
             if (collider != null && collider.enabled && (collider.ClosestPoint(candidate) - candidate).sqrMagnitude < 1.35f * 1.35f)
                 return true;
         }
-        foreach (var token in FindObjectsByType<RouteToken>(FindObjectsSortMode.None))
+        foreach (var token in FindObjectsByType<RouteToken>())
         {
             var collider = token.GetComponent<Collider>();
             if (collider != null && collider.enabled && (collider.ClosestPoint(candidate) - candidate).sqrMagnitude < 1.35f * 1.35f)
                 return true;
         }
-        foreach (var pickup in FindObjectsByType<PowerUpPickup>(FindObjectsSortMode.None))
+        foreach (var pickup in FindObjectsByType<PowerUpPickup>())
         {
             var collider = pickup.GetComponent<Collider>();
             if (collider != null && collider.enabled && (collider.ClosestPoint(candidate) - candidate).sqrMagnitude < 1.45f * 1.45f)

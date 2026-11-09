@@ -58,7 +58,7 @@ namespace DriveSim.User
             return Send(baseUrl, "/users/me", "GET", null, accessToken);
         }
 
-        public static Task<AuthResult> UpdateProgress(string baseUrl, string accessToken, int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0)
+        public static Task<AuthResult> UpdateProgress(string baseUrl, string accessToken, int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0, int bestSubmarine = 0)
         {
             var body = JsonUtility.ToJson(new ProgressBody
             {
@@ -68,7 +68,8 @@ namespace DriveSim.User
                 bestPlane = bestPlane,
                 bestBoat = bestBoat,
                 bestCar = bestCar,
-                bestBike = bestBike
+                bestBike = bestBike,
+                bestSubmarine = bestSubmarine
             });
             return Send(baseUrl, "/users/progress", "PUT", body, accessToken);
         }
@@ -148,7 +149,7 @@ namespace DriveSim.User
         static PlayerProfile ToProfile(UserBody user)
         {
             if (user == null) return null;
-            return new PlayerProfile(user.id, user.email, user.displayName, user.coins, Math.Max(1, user.level), user.score, user.bestPlane, user.bestBoat, user.bestCar, user.bestBike);
+            return new PlayerProfile(user.id, user.email, user.displayName, user.coins, Math.Max(1, user.level), user.score, user.bestPlane, user.bestBoat, user.bestCar, user.bestBike, user.bestSubmarine);
         }
 
         static string ReadError(string error, string fallback)
@@ -173,6 +174,7 @@ namespace DriveSim.User
             public int bestBoat;
             public int bestCar;
             public int bestBike;
+            public int bestSubmarine;
         }
         [Serializable] class UserBody
         {
@@ -186,6 +188,7 @@ namespace DriveSim.User
             public int bestBoat;
             public int bestCar;
             public int bestBike;
+            public int bestSubmarine;
         }
         [Serializable] class TokenBody { public string accessToken; public string refreshToken; public UserBody user; public string error; }
         [Serializable] class MeBody { public UserBody user; public string error; }

@@ -20,7 +20,7 @@ public sealed class FollowBoatCamera : MonoBehaviour
         cameraComponent = GetComponent<Camera>();
         if (cameraComponent == null) cameraComponent = Camera.main;
         if (cameraComponent != null) defaultFov = cameraComponent.fieldOfView;
-        gameManager = FindFirstObjectByType<BoatGameManager>();
+        gameManager = FindAnyObjectByType<BoatGameManager>();
     }
 
     public void SetTarget(Transform value) => target = value;
@@ -30,7 +30,7 @@ public sealed class FollowBoatCamera : MonoBehaviour
     }
     void LateUpdate()
     {
-        if (gameManager == null) gameManager = FindFirstObjectByType<BoatGameManager>();
+        if (gameManager == null) gameManager = FindAnyObjectByType<BoatGameManager>();
         if (cameraComponent != null && gameManager != null)
         {
             float desiredFov = Mathf.Lerp(gameManager.DifficultySettings.cameraFovStart,

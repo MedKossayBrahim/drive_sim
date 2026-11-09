@@ -57,11 +57,11 @@ namespace DriveSim.Submarine
 
         void Awake()
         {
-            if (input == null) input = FindFirstObjectByType<SubmarineInput>();
-            if (controller == null) controller = FindFirstObjectByType<SubmarineController>();
-            if (sonar == null) sonar = FindFirstObjectByType<SonarSystem>();
-            if (battery == null) battery = FindFirstObjectByType<BatterySystem>();
-            if (hull == null) hull = FindFirstObjectByType<HullSystem>();
+            if (input == null) input = FindAnyObjectByType<SubmarineInput>();
+            if (controller == null) controller = FindAnyObjectByType<SubmarineController>();
+            if (sonar == null) sonar = FindAnyObjectByType<SonarSystem>();
+            if (battery == null) battery = FindAnyObjectByType<BatterySystem>();
+            if (hull == null) hull = FindAnyObjectByType<HullSystem>();
 
             BuildUI();
         }

@@ -58,7 +58,7 @@ namespace DriveSim.Submarine
         {
             if (SceneManager.GetActiveScene().name != SceneName)
                 return;
-            if (FindFirstObjectByType<SubmarineBoot>() != null)
+            if (FindAnyObjectByType<SubmarineBoot>() != null)
                 return;
             new GameObject("SubmarineBoot").AddComponent<SubmarineBoot>();
         }
@@ -89,17 +89,17 @@ namespace DriveSim.Submarine
             QualitySettings.shadowDistance = 220f;
             if (Camera.main != null) Camera.main.allowHDR = true;
 
-            if (FindFirstObjectByType<SubmarineController>() == null)
+            if (FindAnyObjectByType<SubmarineController>() == null)
                 BuildWorld();
 
             Wire();
             // AuthFlow.Dismiss(); // not available in host project
 
-            var game = FindFirstObjectByType<GameManager>();
+            var game = FindAnyObjectByType<GameManager>();
             if (game != null)
                 game.StartGame();
 
-            var hud = FindFirstObjectByType<SubmarineHUD>();
+            var hud = FindAnyObjectByType<SubmarineHUD>();
             if (hud != null)
             {
                 var pilot = AuthSession.Player;
@@ -123,12 +123,12 @@ namespace DriveSim.Submarine
 
         void Wire()
         {
-            var sub = FindFirstObjectByType<SubmarineController>();
+            var sub = FindAnyObjectByType<SubmarineController>();
             var cam = Camera.main;
-            var game = FindFirstObjectByType<GameManager>();
-            var box = FindFirstObjectByType<BlackBoxObjective>();
-            var depth = FindFirstObjectByType<DepthZoneManager>();
-            var input = FindFirstObjectByType<SubmarineInput>();
+            var game = FindAnyObjectByType<GameManager>();
+            var box = FindAnyObjectByType<BlackBoxObjective>();
+            var depth = FindAnyObjectByType<DepthZoneManager>();
+            var input = FindAnyObjectByType<SubmarineInput>();
 
             if (cam != null && sub != null && cam.GetComponent<SubmarineCamera>() == null)
             {
@@ -153,10 +153,10 @@ namespace DriveSim.Submarine
             if (input != null)
                 input.enableTouchControls = false;
 
-            if (FindFirstObjectByType<SubmarineHUD>() == null)
+            if (FindAnyObjectByType<SubmarineHUD>() == null)
                 gameObject.AddComponent<SubmarineHUD>();
 
-            if (FindFirstObjectByType<SubmarineInputUI>() == null)
+            if (FindAnyObjectByType<SubmarineInputUI>() == null)
                 gameObject.AddComponent<SubmarineInputUI>();
         }
 
@@ -171,7 +171,7 @@ namespace DriveSim.Submarine
 
         static Light FindDirectional()
         {
-            foreach (var light in FindObjectsByType<Light>(FindObjectsSortMode.None))
+            foreach (var light in FindObjectsByType<Light>())
                 if (light.type == LightType.Directional)
                     return light;
             return null;
@@ -1217,8 +1217,12 @@ namespace DriveSim.Submarine
                 if (data != null)
                 {
                     data.renderPostProcessing = true;
+#if UNITY_IOS || UNITY_ANDROID
+                    data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+#else
                     data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
                     data.antialiasingQuality = AntialiasingQuality.High;
+#endif
                 }
             }
 
@@ -1263,18 +1267,18 @@ namespace DriveSim.Submarine
             var chroma = profile.Add<ChromaticAberration>();
             chroma.intensity.Override(0.12f);
 
-            // Depth of field — shallow enough to be cinematic, but not so strong
-            // that the abyss turns into a uniform cyan smear behind the beam.
+#if UNITY_EDITOR || UNITY_STANDALONE
+            // Depth of field / motion blur : coûteux et souvent stripés sur mobile.
             var dof = profile.Add<DepthOfField>();
             dof.mode.Override(DepthOfFieldMode.Bokeh);
             dof.focusDistance.Override(34f);
             dof.focalLength.Override(50f);
             dof.aperture.Override(9f);
 
-            // Motion blur
             var mb = profile.Add<MotionBlur>();
             mb.intensity.Override(0.15f);
-            mb.quality.Override(MotionBlurQuality.High);
+            mb.quality.Override(MotionBlurQuality.Medium);
+#endif
 
             // Lens distortion
             var lens = profile.Add<LensDistortion>();
@@ -1686,7 +1690,7 @@ namespace DriveSim.Submarine
             var material = ParticleMaterial(new Color(0.32f, 1f, 0.82f, 0.85f));
             if (material == null) yield break;
 
-            foreach (var renderer in FindObjectsByType<ParticleSystemRenderer>(FindObjectsSortMode.None))
+            foreach (var renderer in FindObjectsByType<ParticleSystemRenderer>())
             {
                 var current = renderer.sharedMaterial;
                 if (current == null || current.shader == null ||

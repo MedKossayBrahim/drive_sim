@@ -30,14 +30,14 @@ public sealed class CarRide : MonoBehaviour
 
     void Start()
     {
-        _car = Object.FindFirstObjectByType<GyroCarController>();
+        _car = Object.FindAnyObjectByType<GyroCarController>();
         if (_car != null)
         {
             _lastPosition = _car.transform.position;
             _havePosition = true;
         }
 
-        if (Object.FindFirstObjectByType<DriveControlsUI>() == null && _car != null)
+        if (Object.FindAnyObjectByType<DriveControlsUI>() == null && _car != null)
         {
             var host = new GameObject("DriveControls");
             host.AddComponent<DriveControlsUI>();
@@ -50,7 +50,7 @@ public sealed class CarRide : MonoBehaviour
             return;
 
         if (_car == null)
-            _car = Object.FindFirstObjectByType<GyroCarController>();
+            _car = Object.FindAnyObjectByType<GyroCarController>();
 
         if (_car != null)
         {

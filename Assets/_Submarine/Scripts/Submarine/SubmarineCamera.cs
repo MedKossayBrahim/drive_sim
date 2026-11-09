@@ -62,7 +62,7 @@ namespace DriveSim.Submarine
         {
             if (target == null)
             {
-                var sub = FindFirstObjectByType<SubmarineController>();
+                var sub = FindAnyObjectByType<SubmarineController>();
                 if (sub != null) target = sub.transform;
             }
 

@@ -7,18 +7,19 @@ namespace DriveSim.Menu
     public sealed class GarageProgress
     {
         public const int ModeCount = 4;
-        public const int LevelCount = 4;
-        public const int PageSize = 4;
+        public const int LevelCount = 5;
+        public const int PageSize = 5;
         public const int PageCount = 1;
         public const int TitleCount = 4;
 
-        public static readonly string[] TransportNames = { "Avion", "Bateau", "Vélo", "Voiture" };
+        public static readonly string[] TransportNames = { "Avion", "Bateau", "Vélo", "Voiture", "Sous-marin" };
         public static readonly string[] TransportHints =
         {
             "Décollage, pièces et atterrissage.",
             "Traverse l'océan et ramasse les jetons.",
             "Roule en forêt et ramasse les pièces.",
-            "Conduis en ville avec le gyroscope."
+            "Conduis en ville avec le gyroscope.",
+            "Plonge et explore les fonds marins."
         };
 
         public static readonly string[] TitleNames = { "Recrue", "Pilote", "Flèche", "Légende" };
@@ -95,7 +96,8 @@ namespace DriveSim.Menu
         public static bool IsBoat(int level) => level == 2;
         public static bool IsBike(int level) => level == 3;
         public static bool IsCar(int level) => level == 4;
-        public static bool IsPlayable(int level) => IsPlane(level) || IsBoat(level) || IsBike(level) || IsCar(level);
+        public static bool IsSubmarine(int level) => level == 5;
+        public static bool IsPlayable(int level) => IsPlane(level) || IsBoat(level) || IsBike(level) || IsCar(level) || IsSubmarine(level);
 
         public int CloudLevel
         {
@@ -119,19 +121,20 @@ namespace DriveSim.Menu
             }
         }
 
-        public void ApplyCloud(int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0)
+        public void ApplyCloud(int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0, int bestSubmarine = 0)
         {
             _save.coins = Mathf.Max(_save.coins, Mathf.Max(0, coins));
             level = Mathf.Clamp(level, 1, LevelCount);
             for (int mode = 0; mode < ModeCount; mode++)
                 _save.unlocked[mode] = Mathf.Max(_save.unlocked[mode], level);
-            bool legacyScore = bestPlane <= 0 && bestBoat <= 0 && bestCar <= 0 && bestBike <= 0;
+            bool legacyScore = bestPlane <= 0 && bestBoat <= 0 && bestCar <= 0 && bestBike <= 0 && bestSubmarine <= 0;
             if (legacyScore && score > CloudScore)
                 _save.bestScore[0] = Mathf.Max(_save.bestScore[0], score);
             KeepVehicleBest(1, bestPlane);
             KeepVehicleBest(2, bestBoat);
             KeepVehicleBest(3, bestBike);
             KeepVehicleBest(4, bestCar);
+            KeepVehicleBest(5, bestSubmarine);
             Store();
         }
 

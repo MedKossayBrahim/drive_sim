@@ -80,23 +80,43 @@ namespace DriveSim.User
 
         void SetupCamera()
         {
-            _camera = Camera.main;
-            if (_camera == null)
-            {
-                var cameraObject = new GameObject("Main Camera");
-                cameraObject.tag = "MainCamera";
-                _camera = cameraObject.AddComponent<Camera>();
-            }
+            // Dedicated garage camera — never hijack Camera.main (ForestBikeRide chase).
+            var cameraObject = new GameObject("AuthGarageCamera");
+            cameraObject.transform.SetParent(transform, false);
+            cameraObject.tag = "Untagged";
+            _camera = cameraObject.AddComponent<Camera>();
             _camera.clearFlags = CameraClearFlags.SolidColor;
             _camera.backgroundColor = Night;
             _camera.fieldOfView = 55f;
             _camera.nearClipPlane = 0.1f;
             _camera.farClipPlane = 200f;
+            _camera.depth = 50f;
+            foreach (var other in FindObjectsByType<Camera>(FindObjectsInactive.Include))
+            {
+                if (other != _camera)
+                    other.enabled = false;
+            }
+            _camera.enabled = true;
             FrameCamera();
+        }
+
+        void OnEnable()
+        {
+            if (_camera == null)
+                return;
+            foreach (var other in FindObjectsByType<Camera>(FindObjectsInactive.Include))
+            {
+                if (other != _camera)
+                    other.enabled = false;
+            }
+            _camera.enabled = true;
         }
 
         void FrameCamera()
         {
+            if (_camera == null)
+                return;
+
             var sway = Mathf.Sin(_time * 0.35f) * 0.6f;
             var target = new Vector3(0f, 0.75f, 0f);
             _camera.transform.position = new Vector3(sway, 3.1f, -7.4f);
@@ -115,7 +135,7 @@ namespace DriveSim.User
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.22f, 0.28f, 0.45f);
 
-            foreach (var light in FindObjectsByType<Light>(FindObjectsSortMode.None))
+            foreach (var light in FindObjectsByType<Light>())
             {
                 if (light.type != LightType.Directional) continue;
                 light.transform.rotation = Quaternion.Euler(52f, -35f, 0f);

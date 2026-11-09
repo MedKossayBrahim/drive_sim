@@ -78,7 +78,7 @@ namespace DriveSim.Submarine
 
         void Start()
         {
-            _creature = FindFirstObjectByType<LeviathanAI>();
+            _creature = FindAnyObjectByType<LeviathanAI>();
             SubscribeEvents();
             StartAmbient();
         }

@@ -68,7 +68,7 @@ public static class BoatRenderSetup
 
     static void UpgradeCamerasAndLights()
     {
-        var cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include);
         foreach (var camera in cameras)
         {
             if (camera.gameObject.scene.name != "BoatRunner")
@@ -83,7 +83,7 @@ public static class BoatRenderSetup
                 camera.backgroundColor = new Color(0.32f, 0.58f, 0.72f, 1f);
         }
 
-        var lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
         foreach (var light in lights)
         {
             if (light.gameObject.scene.name != "BoatRunner")
@@ -106,7 +106,7 @@ public static class BoatRenderSetup
         if (lit == null && unlit == null)
             return;
 
-        var renderers = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var renderers = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include);
         foreach (var renderer in renderers)
         {
             if (renderer.gameObject.scene.name != "BoatRunner")

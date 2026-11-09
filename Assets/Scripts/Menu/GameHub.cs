@@ -212,7 +212,7 @@ namespace DriveSim.Menu
             _progress = GarageProgress.Load(_id);
             var cloud = AuthSession.Player;
             if (cloud != null && cloud.Id == _id)
-                _progress.ApplyCloud(cloud.Coins, cloud.Level, cloud.Score, cloud.BestPlane, cloud.BestBoat, cloud.BestCar, cloud.BestBike);
+                _progress.ApplyCloud(cloud.Coins, cloud.Level, cloud.Score, cloud.BestPlane, cloud.BestBoat, cloud.BestCar, cloud.BestBike, cloud.BestSubmarine);
             _mode = 0;
             _level = 1;
             _levelPage = 0;
@@ -1237,7 +1237,7 @@ namespace DriveSim.Menu
         {
             if (_page == Page.Home)
             {
-                _blurbText.text = ModeNames[_mode] + "    ·    Avion, bateau, vélo, voiture.";
+                _blurbText.text = ModeNames[_mode] + "    ·    Avion, bateau, vélo, voiture, sous-marin.";
                 return;
             }
             if (_page == Page.Levels)
@@ -1260,8 +1260,8 @@ namespace DriveSim.Menu
             _statCoins.text = Num(_progress.Coins);
             _featuredArt.sprite = UiKit.Car(Mathf.Clamp(_level - 1, 0, GarageProgress.LevelCount - 1));
             _featuredTitle.text = GarageProgress.TransportName(_level);
-            _featuredBody.text = "1  Avion\n2  Bateau\n3  Vélo\n4  Voiture";
-            _featuredLevel.text = "Avion  ·  Bateau  ·  Vélo  ·  Voiture";
+            _featuredBody.text = "1  Avion\n2  Bateau\n3  Vélo\n4  Voiture\n5  Sous-marin";
+            _featuredLevel.text = "Avion  ·  Bateau  ·  Vélo  ·  Voiture  ·  Sous-marin";
         }
 
         void RefreshMissionFrames()
@@ -1611,7 +1611,8 @@ namespace DriveSim.Menu
                     _progress.BestScoreForVehicle(1),
                     _progress.BestScoreForVehicle(2),
                     _progress.BestScoreForVehicle(4),
-                    _progress.BestScoreForVehicle(3));
+                    _progress.BestScoreForVehicle(3),
+                    _progress.BestScoreForVehicle(5));
                 if (result.Ok && result.Player != null)
                     AuthSession.UpdateProgress(
                         result.Player.Coins,
@@ -1620,7 +1621,8 @@ namespace DriveSim.Menu
                         result.Player.BestPlane,
                         result.Player.BestBoat,
                         result.Player.BestCar,
-                        result.Player.BestBike);
+                        result.Player.BestBike,
+                        result.Player.BestSubmarine);
             }
             catch (Exception)
             {

@@ -1,6 +1,7 @@
 package com.drivesim.auth;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.biometrics.BiometricManager;
 import android.hardware.biometrics.BiometricPrompt;
@@ -41,7 +42,8 @@ public final class BiometricPlugin {
     public static boolean isAvailable(Activity activity) {
         if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true;
-        BiometricManager manager = BiometricManager.from(activity);
+        BiometricManager manager = activity.getSystemService(BiometricManager.class);
+        if (manager == null) return false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             return Api30.canAuthenticate(manager);
         }
@@ -80,12 +82,11 @@ public final class BiometricPlugin {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
-            prompt(activity, cipher);
+            showPrompt(activity, cipher);
         } catch (KeyPermanentlyInvalidatedException exception) {
             clearToken(activity);
-            send("save:error:La biometrie de l'appareil a change. Reessayez.");
+            send("save:error:La biometrie de l'appareil a change. Utilisez le mot de passe.");
         } catch (Exception exception) {
-            busy = false;
             send("save:error:" + clean(exception.getMessage()));
         }
     }
@@ -97,36 +98,30 @@ public final class BiometricPlugin {
             return;
         }
         if (activity == null || !hasToken(activity)) {
-            send("load:error:Aucune biometrie enregistree sur cet appareil.");
+            send("load:error:Aucun jeton biométrique.");
             return;
         }
         try {
             SharedPreferences prefs = prefs(activity);
-            byte[] iv = Base64.decode(prefs.getString(IV_PREF, ""), Base64.NO_WRAP);
             pendingPayload = Base64.decode(prefs.getString(CIPHER_PREF, ""), Base64.NO_WRAP);
+            byte[] iv = Base64.decode(prefs.getString(IV_PREF, ""), Base64.NO_WRAP);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(GCM_TAG_BITS, iv));
-            prompt(activity, cipher);
+            showPrompt(activity, cipher);
         } catch (KeyPermanentlyInvalidatedException exception) {
             clearToken(activity);
             send("load:error:La biometrie de l'appareil a change. Utilisez le mot de passe.");
         } catch (Exception exception) {
-            busy = false;
             send("load:error:" + clean(exception.getMessage()));
         }
     }
 
-    private static void prompt(Activity activity, Cipher cipher) {
-        if (busy) {
-            send(encrypting ? "save:error:Une verification est deja en cours." : "load:error:Une verification est deja en cours.");
-            return;
-        }
+    private static void showPrompt(Activity activity, Cipher cipher) {
         busy = true;
         BiometricPrompt.Builder builder = new BiometricPrompt.Builder(activity)
                 .setTitle("Drive Sim")
-                .setSubtitle(encrypting ? "Activer la connexion biometrique" : "Connexion")
-                .setDescription("Confirmez votre identite. Le visage reste sur le telephone.")
-                .setConfirmationRequired(false);
+                .setSubtitle(encrypting ? "Enregistrer la session" : "Ouvrir la session")
+                .setDescription("Utilisez le visage ou l'empreinte. Rien n'est envoyé au serveur.");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Api30.allowWeakBiometric(builder);
         }
@@ -141,9 +136,10 @@ public final class BiometricPlugin {
                     @Override
                     public void onAuthenticationError(int errorCode, CharSequence errString) {
                         busy = false;
+                        // Framework: BIOMETRIC_ERROR_* (pas de NEGATIVE_BUTTON public → 13).
                         if (errorCode == BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED
                                 || errorCode == BiometricPrompt.BIOMETRIC_ERROR_CANCELED
-                                || errorCode == BiometricPrompt.BIOMETRIC_ERROR_NEGATIVE_BUTTON) {
+                                || errorCode == 13) {
                             send(encrypting ? "save:cancel" : "load:cancel");
                             return;
                         }
@@ -163,10 +159,12 @@ public final class BiometricPlugin {
                                 byte[] plain = unlocked.doFinal(pendingPayload);
                                 send("load:ok:" + new String(plain, StandardCharsets.UTF_8));
                             }
-                        } catch (KeyPermanentlyInvalidatedException exception) {
-                            clearToken(activity);
-                            send((encrypting ? "save:error:" : "load:error:") + "La biometrie de l'appareil a change. Utilisez le mot de passe.");
                         } catch (Exception exception) {
+                            if (exception instanceof KeyPermanentlyInvalidatedException) {
+                                clearToken(activity);
+                                send((encrypting ? "save:error:" : "load:error:") + "La biometrie de l'appareil a change. Utilisez le mot de passe.");
+                                return;
+                            }
                             send((encrypting ? "save:error:" : "load:error:") + clean(exception.getMessage()));
                         }
                     }
@@ -205,7 +203,7 @@ public final class BiometricPlugin {
     }
 
     private static SharedPreferences prefs(Activity activity) {
-        return activity.getSharedPreferences(PREFS, Activity.MODE_PRIVATE);
+        return activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     private static boolean begin(ResultCallback callback, boolean willEncrypt) {
@@ -232,6 +230,10 @@ public final class BiometricPlugin {
 
     // Classe chargée seulement à partir d'Android 11, là où ces constantes existent.
     static final class Api30 {
+        // Valeurs framework KeyProperties (API 30) : STRONG=1, WEAK=2.
+        private static final int AUTH_BIOMETRIC_STRONG = 1;
+        private static final int AUTH_BIOMETRIC_WEAK = 2;
+
         private Api30() {}
 
         static boolean canAuthenticate(BiometricManager manager) {
@@ -246,7 +248,7 @@ public final class BiometricPlugin {
         static void allowWeakKey(KeyGenParameterSpec.Builder builder) {
             builder.setUserAuthenticationParameters(
                     0,
-                    KeyProperties.AUTH_BIOMETRIC_STRONG | KeyProperties.AUTH_BIOMETRIC_WEAK);
+                    AUTH_BIOMETRIC_STRONG | AUTH_BIOMETRIC_WEAK);
         }
     }
 }

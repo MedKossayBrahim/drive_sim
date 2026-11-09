@@ -59,10 +59,10 @@ public class DriveControlsUI : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
-        if (Object.FindFirstObjectByType<GyroCarController>() == null)
+        if (Object.FindAnyObjectByType<GyroCarController>() == null)
             return;
 
-        if (Object.FindFirstObjectByType<DriveControlsUI>() != null)
+        if (Object.FindAnyObjectByType<DriveControlsUI>() != null)
             return;
 
         GameObject go = new GameObject("DriveControls");
@@ -71,7 +71,7 @@ public class DriveControlsUI : MonoBehaviour
 
     private void Start()
     {
-        car = Object.FindFirstObjectByType<GyroCarController>();
+        car = Object.FindAnyObjectByType<GyroCarController>();
         if (car == null)
         {
             Debug.LogWarning("[DriveControlsUI] No GyroCarController in the scene; touch controls disabled.");

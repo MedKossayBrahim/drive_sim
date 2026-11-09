@@ -57,7 +57,7 @@ public sealed class BoatController : MonoBehaviour
         hullCollider = GetComponent<BoxCollider>();
         followCamera = Camera.main;
         effectCamera = followCamera;
-        gameManager = FindFirstObjectByType<BoatGameManager>();
+        gameManager = FindAnyObjectByType<BoatGameManager>();
         initialPosition = body.position;
         initialRotation = body.rotation;
         speed = FallbackCruiseSpeed;

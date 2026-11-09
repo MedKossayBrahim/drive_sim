@@ -516,7 +516,7 @@ PlayerSettings:
   enableCrashReportAPI: 0
   cameraUsageDescription: 
   locationUsageDescription: Drive Sim utilise la position GPS pour la course en voiture. La position reste sur le telephone.
-  microphoneUsageDescription: 
+  microphoneUsageDescription: Drive Sim utilise le micro pour le bruit ambiant dans la mission sous-marin. L'audio reste sur le telephone.
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 12.0
   switchNMETAOverride: 

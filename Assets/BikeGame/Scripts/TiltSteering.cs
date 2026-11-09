@@ -32,11 +32,10 @@ namespace BikeGame
         private const string ModeVersionPreference = "BikeGame.SteeringModeVersion";
         private const int ModeVersion = 2;
 
-        // Bumped when the tilt axis mapping itself changes. Builds before this
-        // version needed INV pressed because the landscape roll axis was rotated
-        // twice; that is fixed at the sensor layer now, so the stale inversion is
-        // cleared once instead of being carried into the corrected build.
-        private const int InvertVersion = 1;
+        // Bumped when the tilt axis mapping itself changes. Version 1 cleared the
+        // stale inversion left by the old double-rotated landscape axis. Version 2
+        // flips the default roll-to-steer sign so tilting left steers left.
+        private const int InvertVersion = 2;
 
         [Header("Mode")]
         [SerializeField] private bool allowTilt = true;
@@ -300,6 +299,12 @@ namespace BikeGame
                 if (delta < 0f) target = -target;
             }
 
+            // Unity's positive WheelCollider steer angle turns the bike right,
+            // while a left roll of the phone produces a negative tilt here. The
+            // sensor roll axis therefore has to be mirrored so "tilt left" sends
+            // a left steer input to SimpleBike. INV still flips this if needed.
+            target = -target;
+
             if (invert) target = -target;
             target = Mathf.Clamp(target, -1f, 1f);
 
@@ -399,7 +404,7 @@ namespace BikeGame
                 ? orientationOverride
                 : Screen.orientation;
 
-            if (orientation == ScreenOrientation.AutoRotation || orientation == ScreenOrientation.Unknown)
+            if (orientation == ScreenOrientation.AutoRotation)
                 orientation = Screen.width > Screen.height
                     ? ScreenOrientation.LandscapeLeft
                     : ScreenOrientation.Portrait;

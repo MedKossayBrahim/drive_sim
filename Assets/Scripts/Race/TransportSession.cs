@@ -1,5 +1,6 @@
 using System.Collections;
 using DriveSim.Menu;
+using DriveSim.Submarine;
 using DriveSim.User;
 using Project.Plane;
 using UnityEngine;
@@ -20,6 +21,8 @@ namespace DriveSim.Race
         public const string BikeSceneName = "ForestBikeRide";
         public const string CarScenePath = "Assets/SimplePoly City - Low Poly Assets/Demo/SimplePoly City - Low Poly Assets_Demo Scene.unity";
         public const string CarSceneName = "SimplePoly City - Low Poly Assets_Demo Scene";
+        public const string SubmarineScenePath = "Assets/_Submarine/Scenes/SubmarineScene.unity";
+        public const string SubmarineSceneName = "SubmarineScene";
 
         public static TransportSession Current { get; private set; }
 
@@ -88,6 +91,11 @@ namespace DriveSim.Race
                 StartCoroutine(LaunchCar());
                 return;
             }
+            if (GarageProgress.IsSubmarine(vehicle))
+            {
+                StartCoroutine(LaunchSubmarine());
+                return;
+            }
             GameHub.ReportResult(0, 0, 0f, 0);
             if (GameHub.Current != null)
                 GameHub.Current.Notify(GarageProgress.TransportName(vehicle) + " arrive bientôt.");
@@ -148,6 +156,9 @@ namespace DriveSim.Race
                 yield break;
 
             yield return null;
+            if (_rideScene.IsValid())
+                SceneManager.SetActiveScene(_rideScene);
+            FocusRideCameras(BikeSceneName, true);
             if (Object.FindAnyObjectByType<BikeRide>() == null)
             {
                 var host = new GameObject("BikeRide");
@@ -178,6 +189,24 @@ namespace DriveSim.Race
                 SceneManager.MoveGameObjectToScene(host, _rideScene);
                 host.AddComponent<CarRide>();
             }
+            while (_busy && !_reported)
+                yield return null;
+        }
+
+        IEnumerator LaunchSubmarine()
+        {
+            _busy = true;
+            _reported = false;
+            _startedAt = Time.unscaledTime;
+            SetHubWorldVisible(false, SubmarineSceneName);
+            yield return LoadRide(SubmarineScenePath, SubmarineSceneName);
+            if (!_rideScene.IsValid())
+                yield break;
+
+            yield return null;
+            if (_rideScene.IsValid())
+                SceneManager.SetActiveScene(_rideScene);
+            FocusRideCameras(SubmarineSceneName, true);
             while (_busy && !_reported)
                 yield return null;
         }
@@ -246,6 +275,12 @@ namespace DriveSim.Race
         {
             if (Current != null)
                 Current.StartCoroutine(Current.FinishCarRoutine(won));
+        }
+
+        public static void FinishFromSubmarine(bool won)
+        {
+            if (Current != null)
+                Current.StartCoroutine(Current.FinishSubmarineRoutine(won));
         }
 
         public static void RestartPlane()
@@ -374,6 +409,33 @@ namespace DriveSim.Race
             GameHub.ReportResult(stars, score, seconds, coins);
         }
 
+        IEnumerator FinishSubmarineRoutine(bool won)
+        {
+            if (_reported)
+                yield break;
+            _reported = true;
+            Time.timeScale = 1f;
+
+            var manager = FindAnyObjectByType<GameManager>();
+            int score = manager != null ? Mathf.RoundToInt(manager.Score) : 0;
+            float depth = manager != null ? manager.MaxDepthReached : 0f;
+            bool box = manager != null && manager.BlackBoxCollected;
+            float seconds = Mathf.Max(1f, Time.unscaledTime - _startedAt);
+            int stars = 0;
+            if (won || box)
+            {
+                stars = 1;
+                if (depth >= 500f || score >= 3000)
+                    stars = 2;
+                if ((won && box) || score >= 7000)
+                    stars = 3;
+            }
+            int coins = stars * 10 + (box ? 25 : 0);
+
+            yield return UnloadRide();
+            GameHub.ReportResult(stars, score, seconds, coins);
+        }
+
         IEnumerator UnloadRide()
         {
             UnbindMission();
@@ -416,7 +478,7 @@ namespace DriveSim.Race
                 }
             }
 
-            var systems = Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var systems = Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include);
             foreach (var system in systems)
             {
                 bool inRide = system.gameObject.scene.name == rideScene;
@@ -428,7 +490,7 @@ namespace DriveSim.Race
 
         static void FocusRideCameras(string rideScene, bool rideActive)
         {
-            var cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include);
             foreach (var camera in cameras)
             {
                 bool inRide = camera.gameObject.scene.name == rideScene;
@@ -437,7 +499,7 @@ namespace DriveSim.Race
                     camera.gameObject.AddComponent<UniversalAdditionalCameraData>();
             }
 
-            var listeners = Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var listeners = Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Include);
             bool oneListener = false;
             foreach (var listener in listeners)
             {

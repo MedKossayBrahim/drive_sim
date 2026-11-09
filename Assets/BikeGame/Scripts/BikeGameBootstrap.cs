@@ -61,16 +61,12 @@ namespace BikeGame
             ConfigureWalkingController();
             EnsureMobileControls();
             CreateWorldBounds();
+            EnsureRoadBarriers();
+            EnsureHeartSystem();
 
             // Let SimpleBike.Start, Biker.Start and PlayerController.Start run.
             yield return null;
             yield return null;
-
-            if (chaseCamera != null)
-            {
-                cameraTarget = bike.transform;
-                chaseCamera.SetTarget(cameraTarget, true);
-            }
 
             if (autoMount)
             {
@@ -91,8 +87,56 @@ namespace BikeGame
             }
 
             KeepInRideScene();
-            Debug.LogFormat("BikeGameBootstrap: rider mounted on {0} at {1}.",
+            BindChaseCamera(true);
+            // Hub FocusRideCameras / AuthBackdrop may toggle cams a frame late.
+            yield return null;
+            BindChaseCamera(true);
+            yield return null;
+            BindChaseCamera(true);
+
+            Debug.LogFormat("BikeGameBootstrap: rider mounted on {0} at {1}, camera behind player.",
                 bike.name, bike.transform.position);
+        }
+
+        void LateUpdate()
+        {
+            // Hard guarantee: Main Camera stays behind the bike every frame.
+            if (bike == null)
+                return;
+            if (chaseCamera == null || chaseCamera.Target == null)
+                BindChaseCamera(false);
+        }
+
+        void BindChaseCamera(bool snap)
+        {
+            if (bike == null)
+                return;
+
+            if (chaseCamera == null)
+                ResolveCamera();
+            if (chaseCamera == null)
+                return;
+
+            Camera cam = chaseCamera.GetComponent<Camera>();
+            if (cam != null)
+            {
+                cam.enabled = true;
+                cam.fieldOfView = 65f;
+                if (!cam.CompareTag("MainCamera"))
+                    cam.tag = "MainCamera";
+
+                Camera[] all = FindObjectsByType<Camera>(FindObjectsInactive.Include);
+                for (int i = 0; i < all.Length; i++)
+                {
+                    if (all[i] == cam)
+                        continue;
+                    all[i].enabled = false;
+                }
+            }
+
+            Transform desired = rider != null && !rider.IsRiding ? rider.transform : bike.transform;
+            cameraTarget = desired;
+            chaseCamera.SetTarget(desired, snap);
         }
 
         void KeepInRideScene()
@@ -100,12 +144,20 @@ namespace BikeGame
             Scene scene = gameObject.scene;
             if (!scene.IsValid())
                 return;
-            if (GameManager.Instance != null)
-                SceneManager.MoveGameObjectToScene(GameManager.Instance.gameObject, scene);
-            if (bikeInstance != null)
-                SceneManager.MoveGameObjectToScene(bikeInstance, scene);
-            if (riderInstance != null)
-                SceneManager.MoveGameObjectToScene(riderInstance, scene);
+            // MoveGameObjectToScene only accepts scene roots. After MountBike the
+            // rider is parented under the bike, so moving the bike is enough.
+            MoveRootToScene(GameManager.Instance != null ? GameManager.Instance.gameObject : null, scene);
+            MoveRootToScene(bikeInstance, scene);
+            MoveRootToScene(riderInstance, scene);
+        }
+
+        static void MoveRootToScene(GameObject go, Scene scene)
+        {
+            if (go == null || go.transform.parent != null)
+                return;
+            if (go.scene == scene)
+                return;
+            SceneManager.MoveGameObjectToScene(go, scene);
         }
 
         private bool EnsureManagers()
@@ -134,13 +186,23 @@ namespace BikeGame
         private void ResolveCamera()
         {
             Camera camera = cameraSource;
-            if (camera == null) camera = Camera.main;
+
+            // Prefer a camera that already lives in ForestBikeRide.
+            if (camera == null || camera.gameObject.scene != gameObject.scene)
+            {
+                Camera[] cameras = FindObjectsByType<Camera>(FindObjectsInactive.Include);
+                for (int i = 0; i < cameras.Length; i++)
+                {
+                    if (cameras[i].gameObject.scene == gameObject.scene)
+                    {
+                        camera = cameras[i];
+                        break;
+                    }
+                }
+            }
 
             if (camera == null)
-            {
-                Camera[] cameras = FindObjectsByType<Camera>();
-                if (cameras.Length > 0) camera = cameras[0];
-            }
+                camera = Camera.main;
 
             if (camera == null)
             {
@@ -148,12 +210,10 @@ namespace BikeGame
                 return;
             }
 
+            camera.enabled = true;
             chaseCamera = camera.GetComponent<BikeChaseCamera>();
             if (chaseCamera == null && createChaseCamera)
                 chaseCamera = camera.gameObject.AddComponent<BikeChaseCamera>();
-
-            if (chaseCamera != null)
-                chaseCamera.SetTarget(null, false);
         }
 
         private bool SpawnBike()
@@ -243,6 +303,180 @@ namespace BikeGame
 
             if (FindAnyObjectByType<TiltSteering>() == null)
                 gameObject.AddComponent<TiltSteering>();
+        }
+
+        // Positions from PlaceBarriers (semah) — 4 red barricades on the forest road.
+        static readonly float[] BarrierDistances = { 4f, 10f, 18f, 21f };
+        static readonly float[] BarrierLateral = { 0.8f, -0.5f, 0.5f, -0.8f };
+        const string RedBarricadeResource = "BikeBarriers/Red_barricade";
+        const float RedBarricadeTargetWidth = 1.15f;
+
+        void EnsureRoadBarriers()
+        {
+            if (GameObject.Find("Road Barrier 1") != null)
+            {
+                // Barrières déjà en scène (outil éditeur) : hors raycast caméra.
+                for (int i = 1; i <= BarrierDistances.Length; i++)
+                {
+                    GameObject existing = GameObject.Find("Road Barrier " + i);
+                    if (existing != null)
+                        ApplyBarrierCameraIgnore(existing);
+                }
+                return;
+            }
+
+            Terrain terrain = Terrain.activeTerrain;
+            Vector3 spawn = useBakedSpawn ? spawnPosition : (bike != null ? bike.transform.position : Vector3.zero);
+            float yaw = useBakedSpawn ? spawnEulerAngles.y : (bike != null ? bike.transform.eulerAngles.y : 67.5f);
+            Vector3 forward = new Vector3(Mathf.Sin(yaw * Mathf.Deg2Rad), 0f, Mathf.Cos(yaw * Mathf.Deg2Rad));
+            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+
+            GameObject prefab = Resources.Load<GameObject>(RedBarricadeResource);
+            Material mat = BuildRedBarricadeMaterial();
+
+            for (int i = 0; i < BarrierDistances.Length; i++)
+            {
+                Vector3 pos = spawn + forward * BarrierDistances[i] + right * BarrierLateral[i];
+                float ground = terrain != null
+                    ? terrain.transform.position.y + terrain.SampleHeight(pos)
+                    : spawn.y;
+
+                GameObject barrier;
+                if (prefab != null)
+                {
+                    barrier = Instantiate(prefab);
+                    barrier.name = "Road Barrier " + (i + 1);
+                    FitRedBarricade(barrier, pos, yaw, ground, mat);
+                }
+                else
+                {
+                    // Fallback si le FBX n'est pas encore importé par Unity.
+                    barrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    barrier.name = "Road Barrier " + (i + 1);
+                    barrier.transform.SetPositionAndRotation(
+                        new Vector3(pos.x, ground + 0.3f, pos.z),
+                        Quaternion.Euler(0f, yaw, 0f));
+                    barrier.transform.localScale = new Vector3(0.8f, 0.6f, 0.3f);
+                    if (mat != null)
+                    {
+                        Renderer rend = barrier.GetComponent<Renderer>();
+                        if (rend != null) rend.sharedMaterial = mat;
+                    }
+                }
+
+                ApplyBarrierCameraIgnore(barrier);
+
+                foreach (var col in barrier.GetComponentsInChildren<Collider>())
+                    col.isTrigger = false;
+                if (barrier.GetComponent<BarrierCollision>() == null &&
+                    barrier.GetComponentInChildren<BarrierCollision>() == null)
+                    barrier.AddComponent<BarrierCollision>();
+                SceneManager.MoveGameObjectToScene(barrier, gameObject.scene);
+            }
+
+            if (prefab != null)
+                Debug.Log("BikeGameBootstrap: 4 barrières Red_barricade (read road bar) placées.");
+            else
+                Debug.LogWarning("BikeGameBootstrap: Red_barricade introuvable dans Resources/BikeBarriers — cubes de secours.");
+        }
+
+        static void ApplyBarrierCameraIgnore(GameObject barrier)
+        {
+            // Ignore Raycast: la chase cam SphereCast ne se plaque plus dessus,
+            // tout en gardant la collision physique vélo ↔ barrière.
+            int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
+            if (ignoreRaycast < 0 || barrier == null)
+                return;
+            foreach (var t in barrier.GetComponentsInChildren<Transform>(true))
+                t.gameObject.layer = ignoreRaycast;
+        }
+
+        static Material BuildRedBarricadeMaterial()
+        {
+            Shader lit = Shader.Find("Universal Render Pipeline/Lit");
+            if (lit == null) lit = Shader.Find("Universal Render Pipeline/Simple Lit");
+            if (lit == null) return null;
+
+            var mat = new Material(lit) { name = "RedBarricadeRuntime" };
+            Texture2D albedo = Resources.Load<Texture2D>("BikeBarriers/Red_barricade_Material_u1_v1_BaseColor");
+            Texture2D normal = Resources.Load<Texture2D>("BikeBarriers/Red_barricade_Material_u1_v1_Normal");
+            Texture2D mask = Resources.Load<Texture2D>("BikeBarriers/Red_barricade_Material_u1_v1_RoughnessMetallic");
+            Texture2D ao = Resources.Load<Texture2D>("BikeBarriers/Red_barricade_AO");
+            if (albedo != null)
+            {
+                if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", albedo);
+                if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", albedo);
+            }
+            else
+                mat.color = new Color(0.85f, 0.12f, 0.1f, 1f);
+            if (normal != null && mat.HasProperty("_BumpMap"))
+            {
+                mat.SetTexture("_BumpMap", normal);
+                mat.EnableKeyword("_NORMALMAP");
+            }
+            if (mask != null && mat.HasProperty("_MetallicGlossMap"))
+            {
+                mat.SetTexture("_MetallicGlossMap", mask);
+                mat.EnableKeyword("_METALLICSPECGLOSSMAP");
+            }
+            if (ao != null && mat.HasProperty("_OcclusionMap"))
+                mat.SetTexture("_OcclusionMap", ao);
+            if (mat.HasProperty("_Smoothness"))
+                mat.SetFloat("_Smoothness", 0.35f);
+            return mat;
+        }
+
+        static void FitRedBarricade(GameObject barrier, Vector3 routePoint, float yaw, float groundY, Material mat)
+        {
+            barrier.transform.SetPositionAndRotation(routePoint, Quaternion.Euler(0f, yaw, 0f));
+            if (mat != null)
+            {
+                foreach (var rend in barrier.GetComponentsInChildren<Renderer>())
+                    rend.sharedMaterial = mat;
+            }
+
+            Bounds bounds = RendererBounds(barrier);
+            float width = Mathf.Max(bounds.size.x, bounds.size.z);
+            if (width > 0.05f)
+                barrier.transform.localScale *= RedBarricadeTargetWidth / width;
+
+            bounds = RendererBounds(barrier);
+            Vector3 shift = new Vector3(
+                routePoint.x - bounds.center.x,
+                groundY - bounds.min.y,
+                routePoint.z - bounds.center.z);
+            barrier.transform.position += shift;
+
+            if (barrier.GetComponentInChildren<Collider>() == null)
+            {
+                var box = barrier.AddComponent<BoxCollider>();
+                bounds = RendererBounds(barrier);
+                box.center = barrier.transform.InverseTransformPoint(bounds.center);
+                Vector3 size = bounds.size;
+                Vector3 scale = barrier.transform.lossyScale;
+                size.x /= Mathf.Max(0.001f, scale.x);
+                size.y /= Mathf.Max(0.001f, scale.y);
+                size.z /= Mathf.Max(0.001f, scale.z);
+                box.size = size;
+            }
+        }
+
+        static Bounds RendererBounds(GameObject target)
+        {
+            var renderers = target.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+                return new Bounds(target.transform.position, Vector3.one);
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            return bounds;
+        }
+
+        void EnsureHeartSystem()
+        {
+            if (FindAnyObjectByType<HeartSystem>() != null)
+                return;
+            gameObject.AddComponent<HeartSystem>();
         }
 
         /// <summary>
@@ -354,13 +588,20 @@ namespace BikeGame
         /// <summary>Follows the bike while riding, and the rider while on foot.</summary>
         private void UpdateCameraTarget()
         {
-            if (chaseCamera == null) return;
+            if (chaseCamera == null)
+                ResolveCamera();
+            if (chaseCamera == null || bike == null)
+                return;
 
             Transform desired = rider != null && !rider.IsRiding ? rider.transform : bike.transform;
-            if (desired == null || cameraTarget == desired) return;
+            if (desired == null)
+                return;
 
-            cameraTarget = desired;
-            chaseCamera.SetTarget(desired, true);
+            if (cameraTarget != desired || chaseCamera.Target != desired)
+            {
+                cameraTarget = desired;
+                chaseCamera.SetTarget(desired, false);
+            }
         }
 
         private Vector3 GetSpawnPosition()

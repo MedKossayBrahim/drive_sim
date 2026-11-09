@@ -130,9 +130,9 @@ public sealed class BoatGameManager : MonoBehaviour
     void Start()
     {
         Time.timeScale = 1f;
-        if (boat == null) boat = FindFirstObjectByType<BoatController>();
-        if (spawner == null) spawner = FindFirstObjectByType<ObstacleSpawner>();
-        if (tokenSpawner == null) tokenSpawner = FindFirstObjectByType<RouteTokenSpawner>();
+        if (boat == null) boat = FindAnyObjectByType<BoatController>();
+        if (spawner == null) spawner = FindAnyObjectByType<ObstacleSpawner>();
+        if (tokenSpawner == null) tokenSpawner = FindAnyObjectByType<RouteTokenSpawner>();
         if (scoreText == null) scoreText = GameObject.Find("Distance")?.GetComponent<Text>();
         if (distanceText == null) distanceText = GameObject.Find("Distance Value")?.GetComponent<Text>();
         if (livesText == null) livesText = GameObject.Find("Lives")?.GetComponent<Text>();
@@ -205,7 +205,7 @@ public sealed class BoatGameManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         paused = false;
-        if (boat == null) boat = FindFirstObjectByType<BoatController>();
+        if (boat == null) boat = FindAnyObjectByType<BoatController>();
         if (boat == null) return;
 
         ClearPowerUps();
@@ -229,9 +229,9 @@ public sealed class BoatGameManager : MonoBehaviour
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         runtimeUI?.SetPaused(false);
         runtimeUI?.SetPauseButtonVisible(true);
-        if (spawner == null) spawner = FindFirstObjectByType<ObstacleSpawner>();
+        if (spawner == null) spawner = FindAnyObjectByType<ObstacleSpawner>();
         if (spawner != null) spawner.ResetSpawner();
-        if (tokenSpawner == null) tokenSpawner = FindFirstObjectByType<RouteTokenSpawner>();
+        if (tokenSpawner == null) tokenSpawner = FindAnyObjectByType<RouteTokenSpawner>();
         if (tokenSpawner != null) tokenSpawner.ResetSpawner();
         RefreshHud();
     }
@@ -307,11 +307,11 @@ public sealed class BoatGameManager : MonoBehaviour
     }
     public void Restart()
     {
-        foreach (var obstacle in FindObjectsByType<Obstacle>(FindObjectsSortMode.None))
+        foreach (var obstacle in FindObjectsByType<Obstacle>())
             Destroy(obstacle.gameObject);
-        foreach (var token in FindObjectsByType<RouteToken>(FindObjectsSortMode.None))
+        foreach (var token in FindObjectsByType<RouteToken>())
             Destroy(token.gameObject);
-        foreach (var powerUp in FindObjectsByType<PowerUpPickup>(FindObjectsSortMode.None))
+        foreach (var powerUp in FindObjectsByType<PowerUpPickup>())
             Destroy(powerUp.gameObject);
         if (boat != null) boat.ResetBoat();
         StartGame();
@@ -371,9 +371,9 @@ public sealed class BoatGameManager : MonoBehaviour
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         runtimeUI?.SetPaused(false);
         runtimeUI?.SetPauseButtonVisible(false);
-        if (spawner == null) spawner = FindFirstObjectByType<ObstacleSpawner>();
+        if (spawner == null) spawner = FindAnyObjectByType<ObstacleSpawner>();
         if (spawner != null) spawner.ResetSpawner();
-        if (tokenSpawner == null) tokenSpawner = FindFirstObjectByType<RouteTokenSpawner>();
+        if (tokenSpawner == null) tokenSpawner = FindAnyObjectByType<RouteTokenSpawner>();
         if (tokenSpawner != null) tokenSpawner.ResetSpawner();
         RefreshHud();
     }

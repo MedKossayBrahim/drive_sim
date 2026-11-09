@@ -65,9 +65,9 @@ public sealed class RouteTokenSpawner : MonoBehaviour
 
     void Start()
     {
-        if (boat == null) boat = FindFirstObjectByType<BoatController>()?.transform;
-        if (gameManager == null) gameManager = FindFirstObjectByType<BoatGameManager>();
-        if (hazardSpawner == null) hazardSpawner = FindFirstObjectByType<ObstacleSpawner>();
+        if (boat == null) boat = FindAnyObjectByType<BoatController>()?.transform;
+        if (gameManager == null) gameManager = FindAnyObjectByType<BoatGameManager>();
+        if (hazardSpawner == null) hazardSpawner = FindAnyObjectByType<ObstacleSpawner>();
     }
 
     void Update()
@@ -128,7 +128,7 @@ public sealed class RouteTokenSpawner : MonoBehaviour
             if (hazardSpawner != null && candidate == hazardSpawner.LastLane &&
                 Mathf.Abs(z - hazardSpawner.LastSpawnZ) < 12f) continue;
             bool blocked = false;
-            foreach (var hazard in FindObjectsByType<Obstacle>(FindObjectsSortMode.None))
+            foreach (var hazard in FindObjectsByType<Obstacle>())
             {
                 int hazardLane = Mathf.RoundToInt(hazard.transform.position.x / LaneSpacing) + 2;
                 if (hazardLane == candidate && Mathf.Abs(hazard.transform.position.z - z) < 10f)
@@ -182,11 +182,11 @@ public sealed class RouteTokenSpawner : MonoBehaviour
     bool IsLanePositionFree(int lane, float z)
     {
         float x = (lane - 2) * LaneSpacing;
-        foreach (var hazard in FindObjectsByType<Obstacle>(FindObjectsSortMode.None))
+        foreach (var hazard in FindObjectsByType<Obstacle>())
             if (OverlapsSpawnSpace(hazard.GetComponent<Collider>(), x, z)) return false;
-        foreach (var token in FindObjectsByType<RouteToken>(FindObjectsSortMode.None))
+        foreach (var token in FindObjectsByType<RouteToken>())
             if (OverlapsSpawnSpace(token.GetComponent<Collider>(), x, z)) return false;
-        foreach (var pickup in FindObjectsByType<PowerUpPickup>(FindObjectsSortMode.None))
+        foreach (var pickup in FindObjectsByType<PowerUpPickup>())
             if (OverlapsSpawnSpace(pickup.GetComponent<Collider>(), x, z)) return false;
         return true;
     }

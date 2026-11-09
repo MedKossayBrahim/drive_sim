@@ -32,7 +32,7 @@ public sealed class BoatRuntimeUI : MonoBehaviour
     {
         manager = GetComponent<BoatGameManager>();
         var canvasObject = GameObject.Find("Game UI");
-        canvas = canvasObject == null ? FindFirstObjectByType<Canvas>() : canvasObject.GetComponent<Canvas>();
+        canvas = canvasObject == null ? FindAnyObjectByType<Canvas>() : canvasObject.GetComponent<Canvas>();
         if (canvas == null) return;
         BuildPowerUpHud();
         BuildPauseUi();

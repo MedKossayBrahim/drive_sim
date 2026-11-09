@@ -119,16 +119,16 @@ namespace DriveSim.Submarine
 
         void Resolve()
         {
-            if (controller == null) controller = FindFirstObjectByType<SubmarineController>();
-            if (hull == null) hull = FindFirstObjectByType<HullSystem>();
-            if (oxygen == null) oxygen = FindFirstObjectByType<OxygenSystem>();
-            if (battery == null) battery = FindFirstObjectByType<BatterySystem>();
-            if (sonar == null) sonar = FindFirstObjectByType<SonarSystem>();
-            if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
-            if (creature == null) creature = FindFirstObjectByType<LeviathanAI>();
-            if (depthZone == null) depthZone = FindFirstObjectByType<DepthZoneManager>();
-            if (compass == null) compass = FindFirstObjectByType<CompassSensor>();
-            if (microphone == null) microphone = FindFirstObjectByType<MicrophoneSensor>();
+            if (controller == null) controller = FindAnyObjectByType<SubmarineController>();
+            if (hull == null) hull = FindAnyObjectByType<HullSystem>();
+            if (oxygen == null) oxygen = FindAnyObjectByType<OxygenSystem>();
+            if (battery == null) battery = FindAnyObjectByType<BatterySystem>();
+            if (sonar == null) sonar = FindAnyObjectByType<SonarSystem>();
+            if (gameManager == null) gameManager = FindAnyObjectByType<GameManager>();
+            if (creature == null) creature = FindAnyObjectByType<LeviathanAI>();
+            if (depthZone == null) depthZone = FindAnyObjectByType<DepthZoneManager>();
+            if (compass == null) compass = FindAnyObjectByType<CompassSensor>();
+            if (microphone == null) microphone = FindAnyObjectByType<MicrophoneSensor>();
         }
 
         void Subscribe()

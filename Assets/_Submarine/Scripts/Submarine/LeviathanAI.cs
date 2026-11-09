@@ -80,7 +80,7 @@ namespace DriveSim.Submarine
         void Start()
         {
             // Find the submarine
-            var sub = FindFirstObjectByType<SubmarineController>();
+            var sub = FindAnyObjectByType<SubmarineController>();
             if (sub != null) _target = sub.transform;
 
             _sonar = _target?.GetComponent<SonarSystem>();

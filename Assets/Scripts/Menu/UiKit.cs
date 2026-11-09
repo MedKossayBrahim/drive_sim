@@ -140,7 +140,7 @@ namespace DriveSim.Menu
         public static Sprite LevelCar() => SpriteOf("levelcar", () => LoadVehicleArt(3));
         public static Sprite Icon(string name) => SpriteOf("icon" + name, () => PaintIcon(name));
 
-        static readonly string[] VehicleResourceNames = { "plane", "boat", "bike", "car" };
+        static readonly string[] VehicleResourceNames = { "plane", "boat", "bike", "car", "submarine" };
 
         static Sprite SpriteOf(string key, System.Func<Sprite> paint)
         {
@@ -303,7 +303,7 @@ namespace DriveSim.Menu
 
         static Sprite PaintVehicle(int kind)
         {
-            kind = Mathf.Clamp(kind, 0, 3);
+            kind = Mathf.Clamp(kind, 0, 4);
             Color skyA, skyB, ground;
             switch (kind)
             {
@@ -321,6 +321,11 @@ namespace DriveSim.Menu
                     skyA = new Color(0.22f, 0.26f, 0.3f);
                     skyB = new Color(0.55f, 0.58f, 0.6f);
                     ground = new Color(0.28f, 0.27f, 0.26f);
+                    break;
+                case 4: // Sous-marin
+                    skyA = new Color(0.02f, 0.08f, 0.18f);
+                    skyB = new Color(0.08f, 0.28f, 0.42f);
+                    ground = new Color(0.04f, 0.16f, 0.26f);
                     break;
                 default: // Avion
                     skyA = new Color(0.02f, 0.08f, 0.2f);
@@ -370,6 +375,9 @@ namespace DriveSim.Menu
                     break;
                 case 3:
                     DrawSideTruck(pix);
+                    break;
+                case 4:
+                    DrawSideSubmarine(pix);
                     break;
                 default:
                     DrawSidePlane(pix);
@@ -477,6 +485,29 @@ namespace DriveSim.Menu
             pix.FillCircle(70, 248, 11, new Color(0.7f, 0.72f, 0.75f, 1f));
             pix.FillCircle(130, 248, 11, new Color(0.7f, 0.72f, 0.75f, 1f));
             pix.FillCircle(220, 248, 12, new Color(0.7f, 0.72f, 0.75f, 1f));
+        }
+
+        static void DrawSideSubmarine(Pix pix)
+        {
+            var hull = new Color(0.18f, 0.32f, 0.4f, 1f);
+            var dark = new Color(0.08f, 0.14f, 0.2f, 1f);
+            var glass = new Color(0.55f, 0.85f, 0.95f, 0.95f);
+            var accent = new Color(0.95f, 0.35f, 0.2f, 1f);
+            pix.FillEllipse(150f, 268f, 125f, 14f, new Color(0f, 0f, 0f, 0.35f));
+            // Coque.
+            pix.FillEllipse(150f, 200f, 120f, 46f, hull);
+            pix.FillEllipse(150f, 192f, 110f, 34f, Color.Lerp(hull, Color.white, 0.15f));
+            // Tour (kiosque).
+            pix.RoundRect(120, 150, 60, 40, 8, dark);
+            pix.FillRect(132, 158, 36, 8, glass);
+            // PÈriscopes.
+            pix.FillRect(148, 120, 4, 32, dark);
+            pix.FillCircle(150, 118, 6, accent);
+            // HÈlice.
+            pix.FillCircle(38, 200, 10, dark);
+            pix.Line(28, 200, 48, 200, 3f, new Color(0.6f, 0.62f, 0.64f, 1f));
+            pix.Line(38, 190, 38, 210, 3f, new Color(0.6f, 0.62f, 0.64f, 1f));
+            pix.Vignette(0.4f);
         }
 
         static void DrawSideBike(Pix pix)

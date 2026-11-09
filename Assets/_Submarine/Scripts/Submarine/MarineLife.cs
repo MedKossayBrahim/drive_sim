@@ -45,8 +45,8 @@ namespace DriveSim.Submarine
 
         void Start()
         {
-            _sub = FindFirstObjectByType<SubmarineController>();
-            _sonar = FindFirstObjectByType<SonarSystem>();
+            _sub = FindAnyObjectByType<SubmarineController>();
+            _sonar = FindAnyObjectByType<SonarSystem>();
             _schoolCenter = transform.position;
             _wanderTarget = _schoolCenter;
 
@@ -230,7 +230,7 @@ namespace DriveSim.Submarine
 
         void Start()
         {
-            _sub = FindFirstObjectByType<SubmarineController>();
+            _sub = FindAnyObjectByType<SubmarineController>();
             CreatePlankton();
         }
 

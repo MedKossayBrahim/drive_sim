@@ -63,12 +63,12 @@ namespace DriveSim.Submarine
 
         void Awake()
         {
-            _controller = FindFirstObjectByType<SubmarineController>();
-            _hull = FindFirstObjectByType<HullSystem>();
-            _oxygen = FindFirstObjectByType<OxygenSystem>();
-            _battery = FindFirstObjectByType<BatterySystem>();
-            _sonar = FindFirstObjectByType<SonarSystem>();
-            _creature = FindFirstObjectByType<LeviathanAI>();
+            _controller = FindAnyObjectByType<SubmarineController>();
+            _hull = FindAnyObjectByType<HullSystem>();
+            _oxygen = FindAnyObjectByType<OxygenSystem>();
+            _battery = FindAnyObjectByType<BatterySystem>();
+            _sonar = FindAnyObjectByType<SonarSystem>();
+            _creature = FindAnyObjectByType<LeviathanAI>();
             CreateMenuButton();
         }
 
@@ -127,7 +127,7 @@ namespace DriveSim.Submarine
 
         public void ReturnToMenu()
         {
-            TransportSession.FinishFromSubmarine(false);
+            TransportSession.FinishFromSubmarine(_state == GameState.Won);
         }
 
         void Update()
@@ -135,7 +135,7 @@ namespace DriveSim.Submarine
             if (UnityEngine.InputSystem.Keyboard.current != null &&
                 UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
             {
-                TransportSession.FinishFromSubmarine(false);
+                TransportSession.FinishFromSubmarine(_state == GameState.Won);
                 return;
             }
 

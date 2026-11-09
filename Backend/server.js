@@ -45,6 +45,8 @@ function normalizeUser(user) {
   if (typeof user.bestBoat !== "number" || !Number.isFinite(user.bestBoat)) user.bestBoat = 0;
   if (typeof user.bestCar !== "number" || !Number.isFinite(user.bestCar)) user.bestCar = 0;
   if (typeof user.bestBike !== "number" || !Number.isFinite(user.bestBike)) user.bestBike = 0;
+  if (typeof user.bestSubmarine !== "number" || !Number.isFinite(user.bestSubmarine)) user.bestSubmarine = 0;
+  if (!Array.isArray(user.scoreRuns)) user.scoreRuns = [];
   user.coins = Math.max(0, Math.min(Math.floor(user.coins), 999999999));
   user.level = Math.max(1, Math.min(Math.floor(user.level), 5));
   user.score = Math.max(0, Math.min(Math.floor(user.score), 999999999));
@@ -52,6 +54,8 @@ function normalizeUser(user) {
   user.bestBoat = Math.max(0, Math.min(Math.floor(user.bestBoat), 999999999));
   user.bestCar = Math.max(0, Math.min(Math.floor(user.bestCar), 999999999));
   user.bestBike = Math.max(0, Math.min(Math.floor(user.bestBike), 999999999));
+  user.bestSubmarine = Math.max(0, Math.min(Math.floor(user.bestSubmarine), 999999999));
+  user.scoreRuns = user.scoreRuns.slice(-40);
   return user;
 }
 
@@ -68,7 +72,29 @@ function publicUser(user) {
     bestBoat: safe.bestBoat,
     bestCar: safe.bestCar,
     bestBike: safe.bestBike,
+    bestSubmarine: safe.bestSubmarine,
   };
+}
+
+function requireUser(request, response) {
+  const token = readBearer(request);
+  if (!token) {
+    response.status(401).json({ error: "Connexion requise." });
+    return null;
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const db = loadDb();
+    const user = db.users.find((item) => item.id === payload.sub);
+    if (!user) {
+      response.status(401).json({ error: "Compte introuvable." });
+      return null;
+    }
+    return { db, user };
+  } catch {
+    response.status(401).json({ error: "Session invalide. Reconnectez-vous." });
+    return null;
+  }
 }
 
 function normalizeEmail(email) {
@@ -155,6 +181,8 @@ app.post("/auth/register", async (request, response) => {
     bestBoat: 0,
     bestCar: 0,
     bestBike: 0,
+    bestSubmarine: 0,
+    scoreRuns: [],
   });
   const tokens = issueTokens(user);
   db.users.push(user);
@@ -218,55 +246,105 @@ app.post("/auth/logout", (request, response) => {
 });
 
 app.get("/users/me", (request, response) => {
-  const token = readBearer(request);
-  if (!token) return response.status(401).json({ error: "Connexion requise." });
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    const db = loadDb();
-    const user = db.users.find((item) => item.id === payload.sub);
-    if (!user) return response.status(401).json({ error: "Compte introuvable." });
-    normalizeUser(user);
-    saveDb(db);
-    response.json({ user: publicUser(user) });
-  } catch {
-    response.status(401).json({ error: "Session invalide. Reconnectez-vous." });
-  }
+  const auth = requireUser(request, response);
+  if (!auth) return;
+  normalizeUser(auth.user);
+  saveDb(auth.db);
+  response.json({ user: publicUser(auth.user) });
 });
 
 app.put("/users/progress", (request, response) => {
-  const token = readBearer(request);
-  if (!token) return response.status(401).json({ error: "Connexion requise." });
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    const db = loadDb();
-    const user = db.users.find((item) => item.id === payload.sub);
-    if (!user) return response.status(401).json({ error: "Compte introuvable." });
+  const auth = requireUser(request, response);
+  if (!auth) return;
+  const { db, user } = auth;
 
-    const coins = Number(request.body.coins);
-    const level = Number(request.body.level);
-    const score = Number(request.body.score);
-    const bestPlane = Number(request.body.bestPlane ?? 0);
-    const bestBoat = Number(request.body.bestBoat ?? 0);
-    const bestCar = Number(request.body.bestCar ?? 0);
-    const bestBike = Number(request.body.bestBike ?? 0);
-    if (![coins, level, score, bestPlane, bestBoat, bestCar, bestBike].every((value) => Number.isFinite(value))) {
-      return response.status(400).json({ error: "coins, level et score doivent être des nombres." });
-    }
-
-    normalizeUser(user);
-    user.coins = Math.max(user.coins, Math.floor(coins));
-    user.level = Math.max(user.level, Math.floor(level));
-    user.score = Math.max(user.score, Math.floor(score), Math.floor(bestPlane), Math.floor(bestBoat), Math.floor(bestCar), Math.floor(bestBike));
-    user.bestPlane = Math.max(user.bestPlane, Math.floor(bestPlane));
-    user.bestBoat = Math.max(user.bestBoat, Math.floor(bestBoat));
-    user.bestCar = Math.max(user.bestCar, Math.floor(bestCar));
-    user.bestBike = Math.max(user.bestBike, Math.floor(bestBike));
-    normalizeUser(user);
-    saveDb(db);
-    response.json({ user: publicUser(user) });
-  } catch {
-    response.status(401).json({ error: "Session invalide. Reconnectez-vous." });
+  const coins = Number(request.body.coins);
+  const level = Number(request.body.level);
+  const score = Number(request.body.score);
+  const bestPlane = Number(request.body.bestPlane ?? 0);
+  const bestBoat = Number(request.body.bestBoat ?? 0);
+  const bestCar = Number(request.body.bestCar ?? 0);
+  const bestBike = Number(request.body.bestBike ?? 0);
+  const bestSubmarine = Number(request.body.bestSubmarine ?? 0);
+  if (![coins, level, score, bestPlane, bestBoat, bestCar, bestBike, bestSubmarine].every((value) => Number.isFinite(value))) {
+    return response.status(400).json({ error: "coins, level et score doivent être des nombres." });
   }
+
+  normalizeUser(user);
+  user.coins = Math.max(user.coins, Math.floor(coins));
+  user.level = Math.max(user.level, Math.floor(level));
+  user.score = Math.max(
+    user.score,
+    Math.floor(score),
+    Math.floor(bestPlane),
+    Math.floor(bestBoat),
+    Math.floor(bestCar),
+    Math.floor(bestBike),
+    Math.floor(bestSubmarine)
+  );
+  user.bestPlane = Math.max(user.bestPlane, Math.floor(bestPlane));
+  user.bestBoat = Math.max(user.bestBoat, Math.floor(bestBoat));
+  user.bestCar = Math.max(user.bestCar, Math.floor(bestCar));
+  user.bestBike = Math.max(user.bestBike, Math.floor(bestBike));
+  user.bestSubmarine = Math.max(user.bestSubmarine, Math.floor(bestSubmarine));
+  normalizeUser(user);
+  saveDb(db);
+  response.json({ user: publicUser(user) });
+});
+
+// Scores de course (sous-marin et futurs modes). Met à jour bestSubmarine / score.
+app.post("/scores", (request, response) => {
+  const auth = requireUser(request, response);
+  if (!auth) return;
+  const { db, user } = auth;
+
+  const score = Math.floor(Number(request.body.score));
+  const maxDepth = Number(request.body.maxDepth);
+  const playTime = Number(request.body.playTime);
+  const cores = Math.floor(Number(request.body.cores ?? 0));
+  if (![score, maxDepth, playTime, cores].every((value) => Number.isFinite(value))) {
+    return response.status(400).json({ error: "score, maxDepth, playTime et cores doivent être des nombres." });
+  }
+
+  normalizeUser(user);
+  const runScore = Math.max(0, score);
+  user.bestSubmarine = Math.max(user.bestSubmarine, runScore);
+  user.score = Math.max(user.score, runScore);
+  user.scoreRuns.push({
+    vehicle: "submarine",
+    score: runScore,
+    maxDepth: Math.max(0, maxDepth),
+    playTime: Math.max(0, playTime),
+    cores: Math.max(0, cores),
+    at: new Date().toISOString(),
+  });
+  normalizeUser(user);
+  saveDb(db);
+  response.status(201).json({
+    ok: true,
+    user: publicUser(user),
+    bestSubmarine: user.bestSubmarine,
+  });
+});
+
+app.get("/scores", (request, response) => {
+  const auth = requireUser(request, response);
+  if (!auth) return;
+  normalizeUser(auth.user);
+  const board = auth.db.users
+    .map((item) => {
+      normalizeUser(item);
+      return {
+        id: item.id,
+        displayName: item.displayName,
+        bestSubmarine: item.bestSubmarine,
+        score: item.score,
+      };
+    })
+    .filter((item) => item.bestSubmarine > 0 || item.score > 0)
+    .sort((a, b) => b.bestSubmarine - a.bestSubmarine || b.score - a.score)
+    .slice(0, 20);
+  response.json({ scores: board, mine: publicUser(auth.user) });
 });
 
 const server = app.listen(PORT, "0.0.0.0", () => {

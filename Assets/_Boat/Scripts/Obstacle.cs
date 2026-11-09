@@ -38,7 +38,7 @@ public sealed class Obstacle : MonoBehaviour
     void Awake()
     {
         if (body == null) body = GetComponent<Rigidbody>();
-        if (boat == null) boat = FindFirstObjectByType<BoatController>()?.transform;
+        if (boat == null) boat = FindAnyObjectByType<BoatController>()?.transform;
         waterlineY = transform.position.y;
         startingRotation = transform.rotation;
         phase = Random.value * Mathf.PI * 2f;
@@ -64,11 +64,11 @@ public sealed class Obstacle : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
-        if (collision.collider.CompareTag("Player")) FindFirstObjectByType<BoatGameManager>()?.HitObstacle();
+        if (collision.collider.CompareTag("Player")) FindAnyObjectByType<BoatGameManager>()?.HitObstacle();
     }
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player")) FindFirstObjectByType<BoatGameManager>()?.HitObstacle();
+        if (other.CompareTag("Player")) FindAnyObjectByType<BoatGameManager>()?.HitObstacle();
     }
 }

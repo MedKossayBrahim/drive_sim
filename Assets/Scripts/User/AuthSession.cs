@@ -15,8 +15,9 @@ namespace DriveSim.User
         public int BestBoat { get; }
         public int BestCar { get; }
         public int BestBike { get; }
+        public int BestSubmarine { get; }
 
-        public PlayerProfile(string id, string email, string displayName, int coins = 0, int level = 1, int score = 0, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0)
+        public PlayerProfile(string id, string email, string displayName, int coins = 0, int level = 1, int score = 0, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0, int bestSubmarine = 0)
         {
             Id = id;
             Email = email;
@@ -28,11 +29,12 @@ namespace DriveSim.User
             BestBoat = Math.Max(0, bestBoat);
             BestCar = Math.Max(0, bestCar);
             BestBike = Math.Max(0, bestBike);
+            BestSubmarine = Math.Max(0, bestSubmarine);
         }
 
-        public PlayerProfile WithProgress(int coins, int level, int score, int bestPlane, int bestBoat, int bestCar, int bestBike)
+        public PlayerProfile WithProgress(int coins, int level, int score, int bestPlane, int bestBoat, int bestCar, int bestBike, int bestSubmarine)
         {
-            return new PlayerProfile(Id, Email, DisplayName, coins, level, score, bestPlane, bestBoat, bestCar, bestBike);
+            return new PlayerProfile(Id, Email, DisplayName, coins, level, score, bestPlane, bestBoat, bestCar, bestBike, bestSubmarine);
         }
     }
 
@@ -53,10 +55,10 @@ namespace DriveSim.User
             SignedIn?.Invoke();
         }
 
-        public static void UpdateProgress(int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0)
+        public static void UpdateProgress(int coins, int level, int score, int bestPlane = 0, int bestBoat = 0, int bestCar = 0, int bestBike = 0, int bestSubmarine = 0)
         {
             if (Player == null) return;
-            Player = Player.WithProgress(coins, level, score, bestPlane, bestBoat, bestCar, bestBike);
+            Player = Player.WithProgress(coins, level, score, bestPlane, bestBoat, bestCar, bestBike, bestSubmarine);
         }
 
         internal static void Close()

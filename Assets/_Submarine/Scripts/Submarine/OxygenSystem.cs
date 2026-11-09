@@ -44,7 +44,7 @@ namespace DriveSim.Submarine
             _controller = GetComponent<SubmarineController>();
             _hull = GetComponent<HullSystem>();
             _sonar = GetComponent<SonarSystem>();
-            _creature = FindFirstObjectByType<LeviathanAI>();
+            _creature = FindAnyObjectByType<LeviathanAI>();
         }
 
         void Update()
