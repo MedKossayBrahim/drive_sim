@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4657f3416c04f5d9d7da97090374bfa, type: 3}
+  m_Name: Storm
+  m_EditorClassIdentifier: Assembly-CSharp::Project.Plane.SkyPreset
+  skyMaterial: {fileID: 2100000, guid: f967e68d206a64828a037e4d064103aa, type: 2}
+  directionalLightColor: {r: 0.62, g: 0.66, b: 0.7, a: 1}
+  directionalLightIntensity: 0.25
+  sunEuler: {x: 35, y: -20, z: 0}
+  fogEnabled: 1
+  fogColor: {r: 0.31, g: 0.35, b: 0.39, a: 1}
+  fogDensity: 0.02
+  exposure: 1
+  useSkyRotationOffset: 1
+  skyRotationOffset: 45
