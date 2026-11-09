@@ -133,14 +133,14 @@ namespace DriveSim.Menu
         public static Sprite Circle() => SpriteOf("circle", PaintCircle);
         public static Sprite Star() => SpriteOf("star", PaintStar);
         public static Sprite Backdrop() => SpriteOf("backdrop", PaintBackdrop);
-        // 0 Avion, 1 Bateau, 2 Voiture, 3 Vélo, 4 Camion.
+        // 0 Avion, 1 Bateau, 2 Vélo, 3 Voiture.
         public static Sprite Car(int vehicle) => SpriteOf("vehicleArt" + vehicle, () => LoadVehicleArt(vehicle));
         // Illustrations des modes de jeu (Classic, CTF, Slalom, Fee Cash).
         public static Sprite ModeArt(int mode) => SpriteOf("mode" + mode, () => PaintModeArt(mode));
-        public static Sprite LevelCar() => SpriteOf("levelcar", () => LoadVehicleArt(2));
+        public static Sprite LevelCar() => SpriteOf("levelcar", () => LoadVehicleArt(3));
         public static Sprite Icon(string name) => SpriteOf("icon" + name, () => PaintIcon(name));
 
-        static readonly string[] VehicleResourceNames = { "plane", "boat", "car", "bike", "truck" };
+        static readonly string[] VehicleResourceNames = { "plane", "boat", "bike", "car" };
 
         static Sprite SpriteOf(string key, System.Func<Sprite> paint)
         {
@@ -303,7 +303,7 @@ namespace DriveSim.Menu
 
         static Sprite PaintVehicle(int kind)
         {
-            kind = Mathf.Clamp(kind, 0, 4);
+            kind = Mathf.Clamp(kind, 0, 3);
             Color skyA, skyB, ground;
             switch (kind)
             {
@@ -312,17 +312,12 @@ namespace DriveSim.Menu
                     skyB = new Color(0.45f, 0.72f, 0.78f);
                     ground = new Color(0.05f, 0.28f, 0.4f);
                     break;
-                case 2: // Voiture
-                    skyA = new Color(0.18f, 0.05f, 0.02f);
-                    skyB = new Color(0.55f, 0.22f, 0.05f);
-                    ground = new Color(0.07f, 0.06f, 0.07f);
-                    break;
-                case 3: // Vélo
+                case 2: // Vélo
                     skyA = new Color(0.04f, 0.12f, 0.08f);
                     skyB = new Color(0.18f, 0.42f, 0.28f);
                     ground = new Color(0.08f, 0.14f, 0.1f);
                     break;
-                case 4: // Camion
+                case 3: // Voiture
                     skyA = new Color(0.22f, 0.26f, 0.3f);
                     skyB = new Color(0.55f, 0.58f, 0.6f);
                     ground = new Color(0.28f, 0.27f, 0.26f);
@@ -355,12 +350,6 @@ namespace DriveSim.Menu
             }
             else if (kind == 2)
             {
-                pix.FillRect(0, 292, 300, 5, new Color(1f, 1f, 1f, 0.22f));
-                pix.FillCircle(78, 210, 78, new Color(1f, 0.35f, 0.05f, 0.95f));
-                pix.FillCircle(70, 200, 46, new Color(1f, 0.82f, 0.28f, 0.95f));
-            }
-            else if (kind == 3)
-            {
                 pix.FillRect(0, 300, 300, 8, new Color(0.2f, 0.35f, 0.22f, 1f));
                 for (int i = 0; i < 5; i++)
                     pix.FillCircle(40 + i * 55, 250, 18 + (i % 2) * 8, new Color(0.12f, 0.32f, 0.16f, 0.9f));
@@ -377,12 +366,9 @@ namespace DriveSim.Menu
                     DrawSideBoat(pix);
                     break;
                 case 2:
-                    DrawSideCar(pix, new Color(0.12f, 0.38f, 0.95f), new Color(0.85f, 0.9f, 0.95f));
-                    break;
-                case 3:
                     DrawSideBike(pix);
                     break;
-                case 4:
+                case 3:
                     DrawSideTruck(pix);
                     break;
                 default:

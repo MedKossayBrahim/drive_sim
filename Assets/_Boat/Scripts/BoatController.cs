@@ -4,17 +4,17 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(Rigidbody), typeof(Collider))]
 public sealed class BoatController : MonoBehaviour
 {
-    const float FallbackCruiseSpeed = 8f;
-    const float FallbackBoostedSpeed = 14f;
+    const float FallbackCruiseSpeed = 11f;
+    const float FallbackBoostedSpeed = 19.5f;
     [Header("Speed")]
     [SerializeField] float brakeSpeed = 2.5f;
-    [SerializeField] float acceleration = 5f;
+    [SerializeField] float acceleration = 9.5f;
     [SerializeField] float braking = 10f;
     [Header("Steering")]
     [SerializeField] float maxLateralSpeed = 7f;
     [SerializeField] float steeringResponse = 18f;
     [SerializeField] float turnAngle = 24f;
-    [SerializeField] float viewportEdgeMargin = 0.35f;
+    [SerializeField] float viewportEdgeMargin = 0.55f;
     [SerializeField] float turboSpeedMultiplier = 1.65f;
     [Header("Boat feel")]
     [SerializeField] float bobHeight = 0.045f;
@@ -99,23 +99,33 @@ public sealed class BoatController : MonoBehaviour
         bool brakeInput = Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow);
         float difficultyCruiseSpeed = gameManager == null ? FallbackCruiseSpeed : gameManager.CruiseSpeed;
         float difficultyMaxSpeed = gameManager == null ? FallbackBoostedSpeed : gameManager.BoostedSpeed;
+        float accel = gameManager != null && gameManager.DifficultySettings != null
+            ? gameManager.DifficultySettings.acceleration
+            : acceleration;
         float targetSpeed = accelerateInput ? difficultyMaxSpeed : difficultyCruiseSpeed;
         if (brakeInput) targetSpeed = brakeSpeed;
         if (turboActive) targetSpeed *= turboSpeedMultiplier;
-        speed = Mathf.MoveTowards(speed, targetSpeed, (brakeInput ? braking : acceleration) * Time.fixedDeltaTime);
+        speed = Mathf.MoveTowards(speed, targetSpeed, (brakeInput ? braking : accel) * Time.fixedDeltaTime);
         lateralSpeed = Mathf.MoveTowards(lateralSpeed, steering * maxLateralSpeed, steeringResponse * Time.fixedDeltaTime);
 
         Vector3 next = body.position + new Vector3(lateralSpeed, 0f, speed) * Time.fixedDeltaTime;
-        if (TryGetCameraHorizontalBounds(out float minimumX, out float maximumX))
+        float playHalf = gameManager != null && gameManager.DifficultySettings != null
+            ? gameManager.DifficultySettings.playAreaHalfWidth
+            : 2.94f;
+        float minimumX = -playHalf;
+        float maximumX = playHalf;
+        if (TryGetCameraHorizontalBounds(out float cameraMin, out float cameraMax))
         {
-            next.x = Mathf.Clamp(next.x, minimumX, maximumX);
-            horizontalLimitCurrent = Mathf.Max(0f, (maximumX - minimumX) * 0.5f);
+            minimumX = Mathf.Max(cameraMin, -playHalf);
+            maximumX = Mathf.Min(cameraMax, playHalf);
+            if (minimumX > maximumX)
+            {
+                float center = (cameraMin + cameraMax) * 0.5f;
+                minimumX = maximumX = Mathf.Clamp(center, -playHalf, playHalf);
+            }
         }
-        else
-        {
-            next.x = body.position.x;
-            horizontalLimitCurrent = 0f;
-        }
+        next.x = Mathf.Clamp(next.x, minimumX, maximumX);
+        horizontalLimitCurrent = Mathf.Max(0f, (maximumX - minimumX) * 0.5f);
         if (Mathf.Abs(next.x - body.position.x) < 0.001f) lateralSpeed = 0f;
 
         if (turboActive) SweepPickupsAndHazards(body.position, next);

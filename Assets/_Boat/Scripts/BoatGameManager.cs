@@ -71,7 +71,15 @@ public sealed class BoatGameManager : MonoBehaviour
     public BoatDifficultyConfig DifficultySettings => difficultySettings;
     public float CruiseSpeed => Mathf.Lerp(difficultySettings.cruiseSpeedStart, difficultySettings.cruiseSpeedMax, Difficulty);
     public float BoostedSpeed => Mathf.Lerp(difficultySettings.boostedSpeedStart, difficultySettings.boostedSpeedMax, Difficulty);
-    public float SpawnDistance => Mathf.Lerp(difficultySettings.spawnDistanceStart, difficultySettings.spawnDistanceMax, Difficulty);
+    public float SpawnDistance
+    {
+        get
+        {
+            float lead = Mathf.Lerp(difficultySettings.spawnLeadSecondsStart, difficultySettings.spawnLeadSecondsMax, Difficulty);
+            float scaled = CruiseSpeed * lead;
+            return Mathf.Clamp(scaled, difficultySettings.spawnDistanceStart, difficultySettings.spawnDistanceMax);
+        }
+    }
     public bool HasShield => Time.time < shieldUntil;
     public bool HasMagnet => Time.time < magnetUntil;
     public bool HasDoubleScore => Time.time < doubleScoreUntil;

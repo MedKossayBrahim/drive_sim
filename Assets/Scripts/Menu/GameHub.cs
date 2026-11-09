@@ -10,7 +10,7 @@ namespace DriveSim.Menu
     // Accueil, missions, véhicules et gains.
     // Écouter PlayRequested(mode, véhicule), puis appeler ReportResult.
     // mode : 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash.
-        // véhicule : 1 Avion, 2 Bateau, 3 Voiture, 4 Vélo, 5 Camion.
+        // véhicule : 1 Avion, 2 Bateau, 3 Vélo, 4 Voiture.
     public sealed class GameHub : MonoBehaviour
     {
         public static readonly string[] ModeNames = { "Classic", "Capture the flag", "Slalom", "Fee Cash" };
@@ -685,9 +685,10 @@ namespace DriveSim.Menu
         void BuildBoard(RectTransform content)
         {
             Note(content, "Meilleur score par transport, enregistré sur ton compte.", 56f);
-            _boardScore = new Text[4];
-            _boardTime = new Text[4];
-            for (int i = 0; i < 4; i++)
+            int vehicleCount = GarageProgress.TransportNames.Length;
+            _boardScore = new Text[vehicleCount];
+            _boardTime = new Text[vehicleCount];
+            for (int i = 0; i < vehicleCount; i++)
             {
                 var row = Band(content, 96f);
                 string boardName = GarageProgress.TransportNames[i];
@@ -1236,7 +1237,7 @@ namespace DriveSim.Menu
         {
             if (_page == Page.Home)
             {
-                _blurbText.text = ModeNames[_mode] + "    ·    Avion, puis bateau, puis voiture, puis vélo.";
+                _blurbText.text = ModeNames[_mode] + "    ·    Avion, bateau, vélo, voiture.";
                 return;
             }
             if (_page == Page.Levels)
@@ -1259,8 +1260,8 @@ namespace DriveSim.Menu
             _statCoins.text = Num(_progress.Coins);
             _featuredArt.sprite = UiKit.Car(Mathf.Clamp(_level - 1, 0, GarageProgress.LevelCount - 1));
             _featuredTitle.text = GarageProgress.TransportName(_level);
-            _featuredBody.text = "1  Avion\n2  Bateau\n3  Voiture\n4  Vélo";
-            _featuredLevel.text = "Avion  ·  Bateau  ·  Voiture  ·  Vélo";
+            _featuredBody.text = "1  Avion\n2  Bateau\n3  Vélo\n4  Voiture";
+            _featuredLevel.text = "Avion  ·  Bateau  ·  Vélo  ·  Voiture";
         }
 
         void RefreshMissionFrames()
@@ -1609,8 +1610,8 @@ namespace DriveSim.Menu
                     _progress.CloudScore,
                     _progress.BestScoreForVehicle(1),
                     _progress.BestScoreForVehicle(2),
-                    _progress.BestScoreForVehicle(3),
-                    _progress.BestScoreForVehicle(4));
+                    _progress.BestScoreForVehicle(4),
+                    _progress.BestScoreForVehicle(3));
                 if (result.Ok && result.Player != null)
                     AuthSession.UpdateProgress(
                         result.Player.Coins,

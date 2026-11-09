@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace DriveSim.User
 {
-    // Garage 3D derrière les écrans de compte : voiture sur plateau tournant, pistes néon.
+    // Garage 3D derrière les écrans de compte : plateau tournant et pistes néon.
     // Tout est construit avec des formes simples de Unity, sans modèle à importer.
     public sealed class AuthBackdrop : MonoBehaviour
     {
@@ -35,7 +35,7 @@ namespace DriveSim.User
             return root.AddComponent<AuthBackdrop>();
         }
 
-        // Point de l'écran (0 à 1) où la voiture doit apparaître, pour laisser la place au formulaire.
+        // Point de l'écran (0 à 1) où le véhicule du garage doit apparaître, pour laisser la place au formulaire.
         public void SetFocus(Vector2 viewportPoint)
         {
             _focus = viewportPoint;

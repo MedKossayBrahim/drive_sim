@@ -3,8 +3,8 @@
 public sealed class FollowBoatCamera : MonoBehaviour
 {
     [SerializeField] Transform target;
-    [SerializeField] Vector3 offset = new Vector3(0f, 10.5f, -13f);
-    [SerializeField] Vector3 lookAhead = new Vector3(0f, 0.45f, 9f);
+    [SerializeField] Vector3 offset = new Vector3(0f, 6.2f, -8.2f);
+    [SerializeField] Vector3 lookAhead = new Vector3(0f, 0.35f, 9f);
     [SerializeField] float followSharpness = 5f;
     [SerializeField] float aimSharpness = 7f;
     [SerializeField] float hitShakeDuration = 0.28f;

@@ -1,6 +1,6 @@
 # Drive Sim
 
-Jeu de course mobile pour Android et iPhone, projet de groupe (6 personnes).
+Jeu mobile pour Android et iPhone, projet de groupe (6 personnes).
 
 Le téléphone vérifie le visage (Face ID sur iPhone, biométrie sur Android). Un petit serveur vérifie le compte. Le visage ne quitte jamais le téléphone : le serveur reçoit un e-mail, un mot de passe, puis un jeton. Il ne reçoit ni photo ni empreinte.
 
@@ -14,11 +14,25 @@ Unity **6000.6.0f1**. Le rendu est l’Universal Render Pipeline.
 | Garage 3D derrière l’écran de compte | En place |
 | Accueil, missions, niveaux, boutique, succès | En place |
 | Serveur de comptes (`Backend`) | En place |
-| Course : véhicule, piste, commandes | À faire par le reste de l’équipe |
+| Avion | En place (`Assets/_Plane`) |
+| Bateau | En place (`Assets/_Boat`) |
+| Vélo | En place (`Assets/BikeGame`) |
+| Voiture | En place (SimplePoly City + gyro) |
 
-L’écran de compte se construit tout seul au lancement. Il n’y a pas de scène « Login » à remplir à la main. La seule scène du projet est `Assets/Scenes/SampleScene.unity` (caméra, lumière, volume). Dans Cursor, les fichiers `.unity` et `.meta` sont masqués par `.vscode/settings.json`. Ils sont visibles dans Unity et dans le Finder.
+L’écran de compte se construit tout seul au lancement. Il n’y a pas de scène « Login » à remplir à la main. La scène d’entrée est `Assets/Scenes/SampleScene.unity` (caméra, lumière, volume). Dans Cursor, les fichiers `.unity` et `.meta` sont masqués par `.vscode/settings.json`. Ils sont visibles dans Unity et dans le Finder.
 
-Quand l’accueil du jeu s’affiche, le joueur est connecté. La course peut alors lire son profil. Elle n’appelle pas Face ID.
+Quand l’accueil du jeu s’affiche, le joueur est connecté. Les courses (avion, bateau, vélo, voiture) peuvent alors lire son profil. Elles n’appellent pas Face ID.
+
+## Véhicules jouables
+
+| Véhicule | Scène | Lancement |
+|---|---|---|
+| 1 Avion | `Assets/_Plane/Scenes/Plane_Scene.unity` | Hub → Véhicules → Avion → Jouer |
+| 2 Bateau | `Assets/_Boat/Scenes/BoatRunner.unity` | Hub → Véhicules → Bateau → Jouer |
+| 3 Vélo | `Assets/BikeGame/Scenes/ForestBikeRide.unity` | Hub → Véhicules → Vélo → Jouer |
+| 4 Voiture | `Assets/SimplePoly City - Low Poly Assets/Demo/SimplePoly City - Low Poly Assets_Demo Scene.unity` | Hub → Véhicules → Voiture → Jouer |
+
+Le hub écoute `GameHub.PlayRequested(mode, véhicule)`. `TransportSession` charge la scène en additif, puis renvoie le résultat avec `GameHub.ReportResult`.
 
 ## Lancer le projet
 
@@ -99,9 +113,12 @@ public class ExempleCourse : MonoBehaviour
 | `AuthSession.AccessToken` | Jeton à envoyer au serveur pour une future requête protégée |
 | `AuthSession.SignedIn` / `SignedOut` | Événements de connexion et de déconnexion |
 
-Les scripts du compte sont dans `Assets/Scripts/User`. Le menu est dans `Assets/Scripts/Menu`.
+Les scripts du compte sont dans `Assets/Scripts/User`. Le menu est dans `Assets/Scripts/Menu`. Le lancement des courses est dans `Assets/Scripts/Race/TransportSession.cs`.
 
-Pour remplacer la course de démonstration, écouter `GameHub.PlayRequested` (mode, niveau). Le menu se cache. À la fin, appeler `GameHub.ReportResult(étoiles, score, secondes)`. Les modes sont 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash. Les niveaux vont de 1 à 15. Zéro étoile abandonne la course.
+Contrats hub :
+
+- Écouter `GameHub.PlayRequested(mode, véhicule)` : modes 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash ; véhicules 1 Avion, 2 Bateau, 3 Vélo, 4 Voiture.
+- À la fin, appeler `GameHub.ReportResult(étoiles, score, secondes, pièces)`. Zéro étoile = abandon.
 
 ## Installer sur un téléphone
 
@@ -144,6 +161,7 @@ Simulateur : **Features > Face ID > Enrolled**, puis **Matching Face** au moment
 4. Montrer `Backend/data/users.json` : compte et jetons, aucune donnée biométrique.
 5. Refuser la biométrie, puis se connecter avec le mot de passe.
 6. **Se déconnecter** ramène au formulaire.
+7. Depuis l’accueil : lancer Avion, Bateau, Vélo ou Voiture, puis revenir au hub.
 
 Le capteur vérifie le visage sur l’appareil. Le serveur vérifie le jeton du compte.
 
@@ -156,10 +174,13 @@ Le capteur vérifie le visage sur l’appareil. Le serveur vérifie le jeton du 
 | `Assets/Scripts/User/AuthApiClient.cs` | Appels HTTP vers le serveur. |
 | `Assets/Scripts/User/AuthSession.cs` | Joueur connecté, à lire par la course. |
 | `Assets/Scripts/User/AuthScreen.cs` | Carte, champs et boutons. |
-| `Assets/Scripts/User/AuthBackdrop.cs` | Garage 3D : voiture, plateau, pistes. |
+| `Assets/Scripts/User/AuthBackdrop.cs` | Garage 3D : plateau et pistes. |
 | `Assets/Scripts/User/AuthFlow.cs` | Ordre des écrans. |
 | `Assets/Scripts/Menu/GameHub.cs` | Accueil, missions, niveaux et écran de gains. |
 | `Assets/Scripts/Menu/GarageProgress.cs` | Pièces, étoiles et niveaux débloqués. |
+| `Assets/Scripts/Race/TransportSession.cs` | Charge avion / bateau / vélo / voiture et renvoie le score. |
+| `Assets/Scripts/CarRide.cs` | Bridge hub pour la course voiture (distance, Terminer). |
+| `Assets/Scripts/GyroCarController.cs` | Conduite gyroscope + pédales. |
 | `Assets/Scripts/User/DeviceAuth.cs` | Face ID, biométrie Android, ou simulation dans l’éditeur. |
 | `Assets/Plugins/iOS/BiometricAuth.mm` | Face ID et trousseau iPhone. |
 | `Assets/Plugins/Android/.../BiometricPlugin.java` | Fenêtre biométrique Android. |

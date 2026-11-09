@@ -7,19 +7,18 @@ namespace DriveSim.Menu
     public sealed class GarageProgress
     {
         public const int ModeCount = 4;
-        public const int LevelCount = 5;
-        public const int PageSize = 5;
+        public const int LevelCount = 4;
+        public const int PageSize = 4;
         public const int PageCount = 1;
         public const int TitleCount = 4;
 
-        public static readonly string[] TransportNames = { "Avion", "Bateau", "Voiture", "Vélo", "Camion" };
+        public static readonly string[] TransportNames = { "Avion", "Bateau", "Vélo", "Voiture" };
         public static readonly string[] TransportHints =
         {
             "Décollage, pièces et atterrissage.",
             "Traverse l'océan et ramasse les jetons.",
-            "Conduis en ville et ramasse les pièces.",
             "Roule en forêt et ramasse les pièces.",
-            "Bientôt disponible."
+            "Conduis en ville avec le gyroscope."
         };
 
         public static readonly string[] TitleNames = { "Recrue", "Pilote", "Flèche", "Légende" };
@@ -94,9 +93,9 @@ namespace DriveSim.Menu
 
         public static bool IsPlane(int level) => level == 1;
         public static bool IsBoat(int level) => level == 2;
-        public static bool IsCar(int level) => level == 3;
-        public static bool IsBike(int level) => level == 4;
-        public static bool IsPlayable(int level) => IsPlane(level) || IsBoat(level) || IsCar(level) || IsBike(level);
+        public static bool IsBike(int level) => level == 3;
+        public static bool IsCar(int level) => level == 4;
+        public static bool IsPlayable(int level) => IsPlane(level) || IsBoat(level) || IsBike(level) || IsCar(level);
 
         public int CloudLevel
         {
@@ -131,8 +130,8 @@ namespace DriveSim.Menu
                 _save.bestScore[0] = Mathf.Max(_save.bestScore[0], score);
             KeepVehicleBest(1, bestPlane);
             KeepVehicleBest(2, bestBoat);
-            KeepVehicleBest(3, bestCar);
-            KeepVehicleBest(4, bestBike);
+            KeepVehicleBest(3, bestBike);
+            KeepVehicleBest(4, bestCar);
             Store();
         }
 
@@ -321,16 +320,25 @@ namespace DriveSim.Menu
         void Normalize()
         {
             _save.unlocked = Fit(_save.unlocked, ModeCount, 1);
-            const int oldCount = 4;
-            bool legacy = LevelCount != oldCount
-                && _save.stars != null
-                && _save.stars.Length == ModeCount * oldCount;
-            if (legacy)
+            const int withCarCount = 5;
+            bool dropCar = _save.stars != null && _save.stars.Length == ModeCount * withCarCount;
+            if (dropCar)
             {
-                _save.stars = RemapVehicles(_save.stars);
-                _save.bestScore = RemapVehicles(_save.bestScore);
-                _save.attempts = RemapVehicles(_save.attempts);
-                _save.bestTime = RemapVehiclesFloat(_save.bestTime);
+                _save.stars = RemapDropCar(_save.stars);
+                _save.bestScore = RemapDropCar(_save.bestScore);
+                _save.attempts = RemapDropCar(_save.attempts);
+                _save.bestTime = RemapDropCarFloat(_save.bestTime);
+                for (int i = 0; i < ModeCount; i++)
+                {
+                    int unlocked = _save.unlocked[i];
+                    // Ancien : 1 Avion, 2 Bateau, 3 Voiture, 4 Vélo, 5 Camion.
+                    if (unlocked >= 5)
+                        _save.unlocked[i] = 4;
+                    else if (unlocked == 4)
+                        _save.unlocked[i] = 3;
+                    else if (unlocked == 3)
+                        _save.unlocked[i] = 4;
+                }
             }
             else
             {
@@ -340,7 +348,7 @@ namespace DriveSim.Menu
                 _save.bestTime = FitFloat(_save.bestTime, ModeCount * LevelCount);
             }
             for (int i = 0; i < ModeCount; i++)
-                _save.unlocked[i] = Mathf.Clamp(Mathf.Max(_save.unlocked[i], 4), 4, LevelCount);
+                _save.unlocked[i] = Mathf.Clamp(Mathf.Max(_save.unlocked[i], LevelCount), 1, LevelCount);
             if (_save.owned == 0)
                 _save.owned = 1;
             if (!Owns(_save.title))
@@ -360,11 +368,11 @@ namespace DriveSim.Menu
             PlayerPrefs.Save();
         }
 
-        // Ancien ordre : Avion, Voiture, Camion, Vélo. Le bateau s'insère en deuxième.
-        static int[] RemapVehicles(int[] source)
+        // Ancien ordre : Avion, Bateau, Voiture, Vélo, Camion -> Avion, Bateau, Vélo, Voiture.
+        static int[] RemapDropCar(int[] source)
         {
-            const int oldCount = 4;
-            int[] map = { 0, 2, 3, 4 };
+            const int oldCount = 5;
+            int[] map = { 0, 1, 3, 2, -1 };
             var data = new int[ModeCount * LevelCount];
             if (source == null)
                 return data;
@@ -372,19 +380,22 @@ namespace DriveSim.Menu
             {
                 for (int oldLevel = 0; oldLevel < oldCount; oldLevel++)
                 {
+                    int dest = map[oldLevel];
+                    if (dest < 0 || dest >= LevelCount)
+                        continue;
                     int oldIndex = mode * oldCount + oldLevel;
                     if (oldIndex >= source.Length)
                         continue;
-                    data[mode * LevelCount + map[oldLevel]] = source[oldIndex];
+                    data[mode * LevelCount + dest] = source[oldIndex];
                 }
             }
             return data;
         }
 
-        static float[] RemapVehiclesFloat(float[] source)
+        static float[] RemapDropCarFloat(float[] source)
         {
-            const int oldCount = 4;
-            int[] map = { 0, 2, 3, 4 };
+            const int oldCount = 5;
+            int[] map = { 0, 1, 3, 2, -1 };
             var data = new float[ModeCount * LevelCount];
             if (source == null)
                 return data;
@@ -392,10 +403,13 @@ namespace DriveSim.Menu
             {
                 for (int oldLevel = 0; oldLevel < oldCount; oldLevel++)
                 {
+                    int dest = map[oldLevel];
+                    if (dest < 0 || dest >= LevelCount)
+                        continue;
                     int oldIndex = mode * oldCount + oldLevel;
                     if (oldIndex >= source.Length)
                         continue;
-                    data[mode * LevelCount + map[oldLevel]] = source[oldIndex];
+                    data[mode * LevelCount + dest] = source[oldIndex];
                 }
             }
             return data;

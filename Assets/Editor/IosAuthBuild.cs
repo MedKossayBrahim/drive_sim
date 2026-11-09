@@ -24,10 +24,10 @@ public static class IosAuthBuild
             "Drive Sim utilise Face ID pour confirmer que c'est bien vous. Votre visage ne quitte pas le telephone.");
         root.SetString(
             "NSLocationWhenInUseUsageDescription",
-            "Drive Sim utilise la position GPS pour la course en voiture. La position reste sur le telephone.");
+            "Drive Sim peut utiliser la position pour certaines courses. La position reste sur le telephone.");
         root.SetString(
             "NSLocationUsageDescription",
-            "Drive Sim utilise la position GPS pour la course en voiture. La position reste sur le telephone.");
+            "Drive Sim peut utiliser la position pour certaines courses. La position reste sur le telephone.");
         root.SetString(
             "NSLocalNetworkUsageDescription",
             "Drive Sim se connecte au serveur de comptes du projet, sur le Wi-Fi de la salle.");

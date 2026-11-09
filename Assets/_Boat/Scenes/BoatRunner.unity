@@ -965,8 +965,8 @@ MonoBehaviour:
   initialInterval: 4.4
   minimumInterval: 3.3
   firstTokenDelay: 1.2
-  spawnAhead: 38
-  laneSpacing: 2.45
+  spawnAhead: 24
+  laneSpacing: 1.47
   minimumPowerUpInterval: 15
   maximumPowerUpInterval: 25
 --- !u!4 &540283220
@@ -1095,8 +1095,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FollowBoatCamera
   target: {fileID: 916849817}
-  offset: {x: 0, y: 7, z: -9.5}
-  lookAhead: {x: 0, y: 0.35, z: 10}
+  offset: {x: 0, y: 6.2, z: -8.2}
+  lookAhead: {x: 0, y: 0.35, z: 9}
   followSharpness: 8
   aimSharpness: 7
 --- !u!81 &844826597
@@ -1140,7 +1140,7 @@ Camera:
     height: 1
   near clip plane: 0.1
   far clip plane: 260
-  field of view: 50
+  field of view: 42
   orthographic: 0
   orthographic size: 10.7
   m_Depth: 0
@@ -1269,15 +1269,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61ab382fbdf76cb46940a474b4e91e1f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoatController
-  cruiseSpeed: 8
-  maxSpeed: 14
+  cruiseSpeed: 11
+  maxSpeed: 19.5
   brakeSpeed: 2.5
-  acceleration: 5
+  acceleration: 9.5
   braking: 10
   maxLateralSpeed: 7
   steeringResponse: 18
   turnAngle: 24
-  viewportEdgeMargin: 0.35
+  viewportEdgeMargin: 0.55
   turboSpeedMultiplier: 1.65
   bobHeight: 0.08
   bobFrequency: 2
@@ -3935,7 +3935,7 @@ MonoBehaviour:
   startInterval: 1.5
   minInterval: 0.55
   spawnAhead: 24
-  laneSpacing: 2.45
+  laneSpacing: 1.47
 --- !u!4 &2009584891
 Transform:
   m_ObjectHideFlags: 0

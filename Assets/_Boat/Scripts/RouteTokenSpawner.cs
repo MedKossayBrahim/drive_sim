@@ -7,7 +7,7 @@ public sealed class RouteTokenSpawner : MonoBehaviour
     [SerializeField] ObstacleSpawner hazardSpawner;
     [SerializeField] Material goldMaterial;
     [SerializeField] Material faceMaterial;
-    const float FallbackLaneSpacing = 2.45f;
+    const float FallbackLaneSpacing = 1.47f;
 
     float timer;
     float elapsed;
@@ -32,7 +32,7 @@ public sealed class RouteTokenSpawner : MonoBehaviour
     {
         BoatDifficultyConfig config = gameManager == null ? null : gameManager.DifficultySettings;
         float firstInterval = config == null ? 2.8f : config.coinIntervalStart;
-        float firstDelay = config == null ? 1.1f : config.firstCoinDelay;
+        float firstDelay = config == null ? 0.35f : config.firstCoinDelay;
         timer = Mathf.Max(0f, firstInterval - firstDelay);
         elapsed = 0f;
         lastTokenZ = float.NegativeInfinity;
@@ -40,6 +40,27 @@ public sealed class RouteTokenSpawner : MonoBehaviour
         powerUpTimer = 0f;
         powerUpRetryTimer = 0f;
         nextPowerUpDelay = RandomPowerUpInterval();
+        PrefillOpening();
+    }
+
+    void PrefillOpening()
+    {
+        if (boat == null) return;
+        float speed = gameManager == null ? 11f : gameManager.CruiseSpeed;
+        float z = boat.position.z + speed * 2.0f;
+        if (!TryChooseFreeLane(z, out int trailLane)) return;
+        BoatDifficultyConfig config = gameManager == null ? null : gameManager.DifficultySettings;
+        int trailCount = config == null ? 3 : config.coinTrailCountStart;
+        float spacing = config == null ? 2.15f : config.coinTrailSpacing;
+        for (int i = 0; i < trailCount; i++)
+        {
+            float tokenZ = z + i * spacing;
+            int lane = trailLane;
+            if (!IsLanePositionFree(lane, tokenZ) && !TryChooseFreeLaneInternal(tokenZ, out lane, false)) continue;
+            lastTokenLane = lane;
+            lastTokenZ = tokenZ;
+            CreateToken(lane, tokenZ);
+        }
     }
 
     void Start()
@@ -80,7 +101,7 @@ public sealed class RouteTokenSpawner : MonoBehaviour
     {
         if (boat == null) return;
         BoatDifficultyConfig config = gameManager == null ? null : gameManager.DifficultySettings;
-        float spawnAhead = gameManager == null ? 42f : gameManager.SpawnDistance;
+        float spawnAhead = gameManager == null ? 26f : gameManager.SpawnDistance;
         float z = boat.position.z + spawnAhead + Random.Range(0f, 4f);
         if (!TryChooseFreeLane(z, out int trailLane)) return;
         int trailCount = config == null ? 3 : Mathf.RoundToInt(Mathf.Lerp(

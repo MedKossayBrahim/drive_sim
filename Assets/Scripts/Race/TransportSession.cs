@@ -16,10 +16,10 @@ namespace DriveSim.Race
         public const string PlaneSceneName = "Plane_Scene";
         public const string BoatScenePath = "Assets/_Boat/Scenes/BoatRunner.unity";
         public const string BoatSceneName = "BoatRunner";
-        public const string CarScenePath = "Assets/SimplePoly City - Low Poly Assets/Demo/SimplePoly City - Low Poly Assets_Demo Scene.unity";
-        public const string CarSceneName = "SimplePoly City - Low Poly Assets_Demo Scene";
         public const string BikeScenePath = "Assets/BikeGame/Scenes/ForestBikeRide.unity";
         public const string BikeSceneName = "ForestBikeRide";
+        public const string CarScenePath = "Assets/SimplePoly City - Low Poly Assets/Demo/SimplePoly City - Low Poly Assets_Demo Scene.unity";
+        public const string CarSceneName = "SimplePoly City - Low Poly Assets_Demo Scene";
 
         public static TransportSession Current { get; private set; }
 
@@ -78,14 +78,14 @@ namespace DriveSim.Race
                 StartCoroutine(LaunchBoat());
                 return;
             }
-            if (GarageProgress.IsCar(vehicle))
-            {
-                StartCoroutine(LaunchCar());
-                return;
-            }
             if (GarageProgress.IsBike(vehicle))
             {
                 StartCoroutine(LaunchBike());
+                return;
+            }
+            if (GarageProgress.IsCar(vehicle))
+            {
+                StartCoroutine(LaunchCar());
                 return;
             }
             GameHub.ReportResult(0, 0, 0f, 0);
@@ -137,32 +137,6 @@ namespace DriveSim.Race
                 yield return null;
         }
 
-        IEnumerator LaunchCar()
-        {
-            _busy = true;
-            _reported = false;
-            _startedAt = Time.unscaledTime;
-            SetHubWorldVisible(false, CarSceneName);
-            yield return LoadRide(CarScenePath, CarSceneName);
-            if (!_rideScene.IsValid())
-                yield break;
-
-            // Laisser la ville (3500+ prefabs) et l'éclairage se stabiliser.
-            yield return null;
-            yield return null;
-            if (_rideScene.IsValid())
-                SceneManager.SetActiveScene(_rideScene);
-            FocusRideCameras(CarSceneName, true);
-            if (Object.FindAnyObjectByType<CarRide>() == null)
-            {
-                var host = new GameObject("CarRide");
-                SceneManager.MoveGameObjectToScene(host, _rideScene);
-                host.AddComponent<CarRide>();
-            }
-            while (_busy && !_reported)
-                yield return null;
-        }
-
         IEnumerator LaunchBike()
         {
             _busy = true;
@@ -179,6 +153,30 @@ namespace DriveSim.Race
                 var host = new GameObject("BikeRide");
                 SceneManager.MoveGameObjectToScene(host, _rideScene);
                 host.AddComponent<BikeRide>();
+            }
+            while (_busy && !_reported)
+                yield return null;
+        }
+
+        IEnumerator LaunchCar()
+        {
+            _busy = true;
+            _reported = false;
+            _startedAt = Time.unscaledTime;
+            SetHubWorldVisible(false, CarSceneName);
+            yield return LoadRide(CarScenePath, CarSceneName);
+            if (!_rideScene.IsValid())
+                yield break;
+
+            yield return null;
+            if (_rideScene.IsValid())
+                SceneManager.SetActiveScene(_rideScene);
+            FocusRideCameras(CarSceneName, true);
+            if (Object.FindAnyObjectByType<CarRide>() == null)
+            {
+                var host = new GameObject("CarRide");
+                SceneManager.MoveGameObjectToScene(host, _rideScene);
+                host.AddComponent<CarRide>();
             }
             while (_busy && !_reported)
                 yield return null;
@@ -238,16 +236,16 @@ namespace DriveSim.Race
                 Current.StartCoroutine(Current.FinishBoatRoutine(won));
         }
 
-        public static void FinishFromCar(bool won)
-        {
-            if (Current != null)
-                Current.StartCoroutine(Current.FinishCarRoutine(won));
-        }
-
         public static void FinishFromBike(bool won)
         {
             if (Current != null)
                 Current.StartCoroutine(Current.FinishBikeRoutine(won));
+        }
+
+        public static void FinishFromCar(bool won)
+        {
+            if (Current != null)
+                Current.StartCoroutine(Current.FinishCarRoutine(won));
         }
 
         public static void RestartPlane()
@@ -325,31 +323,6 @@ namespace DriveSim.Race
             GameHub.ReportResult(stars, score, seconds, coins);
         }
 
-        IEnumerator FinishCarRoutine(bool won)
-        {
-            if (_reported)
-                yield break;
-            _reported = true;
-            Time.timeScale = 1f;
-
-            var ride = Object.FindAnyObjectByType<CarRide>();
-            int score = ride != null ? ride.Score : 0;
-            int coins = ride != null ? ride.Coins : 0;
-            float seconds = Mathf.Max(1f, Time.unscaledTime - _startedAt);
-            int stars = 0;
-            if (won || coins >= 8)
-            {
-                stars = 1;
-                if (coins >= 12)
-                    stars = 2;
-                if (coins >= 20)
-                    stars = 3;
-            }
-
-            yield return UnloadRide();
-            GameHub.ReportResult(stars, score, seconds, coins);
-        }
-
         IEnumerator FinishBikeRoutine(bool won)
         {
             if (_reported)
@@ -368,6 +341,32 @@ namespace DriveSim.Race
                 if (coins >= 15)
                     stars = 2;
                 if (coins >= 25)
+                    stars = 3;
+            }
+
+            yield return UnloadRide();
+            GameHub.ReportResult(stars, score, seconds, coins);
+        }
+
+        IEnumerator FinishCarRoutine(bool won)
+        {
+            if (_reported)
+                yield break;
+            _reported = true;
+            Time.timeScale = 1f;
+
+            var ride = Object.FindAnyObjectByType<CarRide>();
+            int distance = ride != null ? ride.Distance : 0;
+            int coins = ride != null ? ride.Coins : 0;
+            int score = ride != null ? ride.Score : distance;
+            float seconds = Mathf.Max(1f, Time.unscaledTime - _startedAt);
+            int stars = 0;
+            if (won || distance >= 200)
+            {
+                stars = 1;
+                if (distance >= 500)
+                    stars = 2;
+                if (distance >= 1000)
                     stars = 3;
             }
 

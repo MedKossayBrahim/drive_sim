@@ -12,7 +12,7 @@ public sealed class ObstacleSpawner : MonoBehaviour
     [SerializeField] Material seaweedMaterial;
     [SerializeField] Material foamMaterial;
     [SerializeField] Material accentMaterial;
-    const float FallbackLaneSpacing = 2.45f;
+    const float FallbackLaneSpacing = 1.47f;
 
     float timer;
     float elapsed;
@@ -59,6 +59,45 @@ public sealed class ObstacleSpawner : MonoBehaviour
         lastLane = -10;
         lastSpawnZ = float.NegativeInfinity;
         lastWaveObstacleCount = 0;
+        PrefillOpening();
+    }
+
+    void PrefillOpening()
+    {
+        if (boat == null) return;
+        float speed = gameManager == null ? 11f : gameManager.CruiseSpeed;
+        float firstZ = boat.position.z + speed * 2.15f;
+        float secondZ = firstZ + Mathf.Max(8f, speed * 0.85f);
+        PrefillWave(firstZ, 1);
+        PrefillWave(secondZ, 2);
+        timer = -0.15f;
+    }
+
+    void PrefillWave(float worldZ, int obstacleCount)
+    {
+        lastSafeCorridorLanes = 3;
+        lastSafeCorridorStart = Random.Range(0, 6 - lastSafeCorridorLanes);
+        var lanes = new List<int>(5 - lastSafeCorridorLanes);
+        for (int lane = 0; lane < 5; lane++)
+            if (lane < lastSafeCorridorStart || lane >= lastSafeCorridorStart + lastSafeCorridorLanes)
+                lanes.Add(lane);
+        for (int i = lanes.Count - 1; i > 0; i--)
+        {
+            int swap = Random.Range(0, i + 1);
+            (lanes[i], lanes[swap]) = (lanes[swap], lanes[i]);
+        }
+
+        int count = Mathf.Clamp(obstacleCount, 1, lanes.Count);
+        lastWaveObstacleCount = 0;
+        for (int i = 0; i < count; i++)
+        {
+            int lane = lanes[i];
+            if (IsHazardSpaceOccupied(lane, worldZ)) continue;
+            CreateHazard(ChooseKind(0f, gameManager == null ? null : gameManager.DifficultySettings), lane, worldZ);
+            lastLane = lane;
+            lastSpawnZ = worldZ;
+            lastWaveObstacleCount++;
+        }
     }
 
     void Update()
@@ -97,7 +136,7 @@ public sealed class ObstacleSpawner : MonoBehaviour
             (lanes[i], lanes[swap]) = (lanes[swap], lanes[i]);
         }
 
-        float spawnDistance = gameManager == null ? 42f : gameManager.SpawnDistance;
+        float spawnDistance = gameManager == null ? 26f : gameManager.SpawnDistance;
         float z = boat.position.z + spawnDistance + Random.Range(0f, 2f);
         float gap = config == null ? 12f : Mathf.Lerp(config.obstacleWaveGapStart, config.obstacleWaveGapMax, difficulty);
         lastSpawnZ = z;
