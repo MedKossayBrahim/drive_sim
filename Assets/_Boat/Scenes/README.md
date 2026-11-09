@@ -99,16 +99,65 @@ Note validation : une mort à 0 vies appelle `FinishFromBoat(true)` (la course e
 
 ## Où trouver les composants
 
-| Question | Réponse |
+| Élément | Emplacement |
 |---|---|
-| Rigidbody bateau ? | Même GameObject que `BoatController` |
-| Accéléromètre ? | `BoatController` → lecture `Input.acceleration.x` |
-| Qui démarre depuis le hub ? | `TransportSession.LaunchBoat` → `BoatGameManager.PlayFromHub()` |
-| Qui compte les vies ? | `BoatGameManager` |
-| Qui renvoie le score ? | `EndGame` / `LeaveToHub` → `FinishFromBoat` |
+| Rigidbody bateau | Même GameObject que `BoatController` |
+| Accéléromètre | `BoatController` → `Input.acceleration.x` |
+| Démarrage hub | `LaunchBoat` → `BoatGameManager.PlayFromHub()` |
+| Vies / score | `BoatGameManager` |
+| Retour hub | `EndGame` / `LeaveToHub` → `FinishFromBoat` |
 
 ---
 
 ## Permissions
 
 Accéléromètre (souvent sans permission). Vibration Android (`VIBRATE`) pour les hits.
+
+---
+
+## Questions possibles & réponses (validation)
+
+**Q1. Comment le bateau est lancé depuis le hub ?**  
+**R :** Véhicule ID **2** → `TransportSession.LaunchBoat()` → `BoatRenderSetup.Apply()` → `BoatGameManager.PlayFromHub()`.
+
+**Q2. Pourquoi `PlayFromHub` existe ?**  
+**R :** Pour démarrer la run **directement** depuis le hub, sans rester bloqué sur le panneau Start de la scène standalone.
+
+**Q3. Quelle physique utilise le bateau ?**  
+**R :** Rigidbody **sans gravité**, rotations X/Z gelées. Déplacement par **`MovePosition` / `MoveRotation`**, pas `AddForce`. C’est un runner contrôlé, pas une simu fluide réaliste.
+
+**Q4. Quel capteur pour tourner sur mobile ?**  
+**R :** L’**accéléromètre Legacy** : `Input.acceleration.x`, si `SystemInfo.supportsAccelerometer`.
+
+**Q5. Pourquoi Legacy et pas Input System ici ?**  
+**R :** Choix du module bateau : API simple `Input.acceleration`. L’avion/vélo/voiture utilisent plutôt le **nouveau** Input System (`AttitudeSensor`, `Accelerometer.current`).
+
+**Q6. Que se passe-t-il à 0 vies ?**  
+**R :** `BoatGameManager.EndGame` → `FinishFromBoat(true)`. `true` = run **terminée** (pas abandon) ; les étoiles dépendent ensuite de la distance/score.
+
+**Q7. Différence entre mort et abandon ?**  
+**R :** Mort (0 vies) → `FinishFromBoat(true)`. Quit manuel (`LeaveToHub`) → `FinishFromBoat(false)` → 0 étoile.
+
+**Q8. Comment sont calculées les étoiles ?**  
+**R :** 1★ si run terminée avec activité ; 2★ si distance ≥ 400 ; 3★ si ≥ 900 (`FinishBoatRoutine`).
+
+**Q9. Comment l’océan paraît infini ?**  
+**R :** `OceanSurface` déplace une tuile d’eau qui **suit** le bateau.
+
+**Q10. Qui spawn les obstacles et jetons ?**  
+**R :** `ObstacleSpawner` / `Obstacle` et `RouteTokenSpawner` / `RouteToken`.
+
+**Q11. Où est la vibration collision ?**  
+**R :** `Handheld.Vibrate()` dans la logique de hit du bateau / manager.
+
+**Q12. Qui gère la caméra ?**  
+**R :** `FollowBoatCamera` sur `Camera.main`, avec shake (`TriggerHitShake`) au choc.
+
+**Q13. Le collider du bateau est-il solide ?**  
+**R :** Souvent en **trigger** ; les collisions gameplay sont gérées en code (vies, turbo via `OverlapBoxNonAlloc`).
+
+**Q14. Où lire score, distance, jetons pour le hub ?**  
+**R :** Propriétés de `BoatGameManager` (`Score`, `Distance`, `TokensCollected`) lues dans `FinishBoatRoutine`.
+
+**Q15. Peut-on jouer au clavier dans l’éditeur ?**  
+**R :** Oui : A/D direction, W/S accel/frein, P/Escape pause, R restart.

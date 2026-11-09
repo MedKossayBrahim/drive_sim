@@ -119,7 +119,7 @@ public final class BiometricPlugin {
     private static void showPrompt(Activity activity, Cipher cipher) {
         busy = true;
         BiometricPrompt.Builder builder = new BiometricPrompt.Builder(activity)
-                .setTitle("Drive Sim")
+                .setTitle("MultiRide")
                 .setSubtitle(encrypting ? "Enregistrer la session" : "Ouvrir la session")
                 .setDescription("Utilisez le visage ou l'empreinte. Rien n'est envoyé au serveur.");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

@@ -93,16 +93,49 @@ Modes UI : 0 Classic, 1 Capture the flag, 2 Slalom, 3 Fee Cash (choix d’écran
 
 ---
 
-## Questions possibles (validation)
+## Questions possibles & réponses (validation)
 
-**« Où est le script de login dans la scène ? »**  
-Il n’est pas posé à la main. `AuthFlow` le crée au runtime sur `AuthBridge`.
+**Q1. Pourquoi SampleScene est presque vide dans Hierarchy ?**  
+**R :** Parce que le compte, le garage et le hub sont créés **au runtime** par `AuthFlow`, `AuthBackdrop` et `GameHub`. La scène ne garde que la base URP (caméra, lumière, volume).
 
-**« Comment on passe d’une course au hub ? »**  
-La course appelle `TransportSession.FinishFromX(...)`, qui décharge la scène additive et appelle `GameHub.ReportResult`.
+**Q2. Où est le script de login dans la scène ?**  
+**R :** Il n’est pas posé à la main. `AuthFlow.Bootstrap` crée `AuthBridge`, puis `AuthScreen` construit l’UI (champs, boutons).
 
-**« Le visage part-il sur le serveur ? »**  
-Non. Le téléphone valide la biométrie localement ; le serveur ne reçoit que e-mail / mot de passe / jetons.
+**Q3. Que se passe-t-il exactement au Play ?**  
+**R :** `AuthFlow.Bootstrap` + `TransportSession.Bootstrap` (`RuntimeInitializeOnLoadMethod`). Ensuite inscription/login/biométrie → `GameHub.Open`.
 
-**« Où changer l’IP du téléphone ? »**  
-`Assets/Scripts/User/AuthConfig.cs` → `PhoneServerUrl`.
+**Q4. Comment on lance une course depuis le hub ?**  
+**R :** Le joueur choisit mode + véhicule → `GameHub.PlayRequested(mode, véhicule)` → `TransportSession.OnPlayRequested` → `LaunchPlane|Boat|Bike|Car|Submarine`.
+
+**Q5. Comment on revient d’une course au hub ?**  
+**R :** La course appelle `TransportSession.FinishFromX(...)`. La scène additive est déchargée (`UnloadRide`), puis `GameHub.ReportResult(étoiles, score, secondes, pièces)`.
+
+**Q6. C’est quoi un chargement « additif » ?**  
+**R :** `SceneManager.LoadSceneAsync(..., LoadSceneMode.Additive)` : la course s’ajoute sans détruire SampleScene / les objets DontDestroyOnLoad (`GameHub`, `TransportSession`).
+
+**Q7. Le visage / Face ID part-il sur le serveur ?**  
+**R :** Non. La biométrie reste sur le téléphone (`DeviceAuth` + plugins natifs). Le serveur Node reçoit seulement e-mail, mot de passe hashé et jetons JWT.
+
+**Q8. Où est le code biométrie ?**  
+**R :** Côté C# : `Assets/Scripts/User/DeviceAuth.cs`. iOS : `Assets/Plugins/iOS/BiometricAuth.mm`. Android : plugin Java `BiometricPlugin`.
+
+**Q9. Où changer l’IP du téléphone ?**  
+**R :** `Assets/Scripts/User/AuthConfig.cs` → `PhoneServerUrl` (ex. `http://172.20.10.3:5080`). En éditeur : `EditorServerUrl = http://localhost:5080`.
+
+**Q10. Pourquoi localhost ne marche pas sur le téléphone ?**  
+**R :** Sur téléphone, `localhost` = le téléphone lui-même, pas le Mac. Il faut l’IP LAN du Mac affichée par `npm start`.
+
+**Q11. Où sont stockés les comptes ?**  
+**R :** `Backend/data/users.json` (ignoré par Git). Contient e-mail, pseudo, hash mot de passe, jetons — **aucune** photo biométrique.
+
+**Q12. Quels objets DontDestroyOnLoad chercher en Play Mode ?**  
+**R :** `AuthBridge`, `AuthGarage`, `GameHub`, `TransportSession`.
+
+**Q13. Qui gère pièces / étoiles / meilleurs scores ?**  
+**R :** `GarageProgress` en local + sync cloud via `PUT /users/progress`.
+
+**Q14. Les modes Classic / Slalom changent-ils la physique ?**  
+**R :** Non. Ce sont des choix d’écran UI. Le lancement véhicule (1–5) reste le même.
+
+**Q15. Y a-t-il un Rigidbody / accéléromètre dans SampleScene ?**  
+**R :** Non pour le gameplay hub. La physique et les capteurs de mouvement sont dans les scènes de course.

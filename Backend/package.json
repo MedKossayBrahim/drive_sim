@@ -2,7 +2,7 @@
   "name": "drive-sim-auth",
   "private": true,
   "version": "0.1.0",
-  "description": "Petit serveur de comptes pour Drive Sim.",
+  "description": "Petit serveur de comptes pour MultiRide.",
   "type": "module",
   "engines": {
     "node": ">=18"

@@ -77,7 +77,7 @@ namespace DriveSim.User
         static async Task<AuthResult> Send(string baseUrl, string path, string method, string json, string accessToken)
         {
             var url = baseUrl.Trim().TrimEnd('/') + path;
-            Debug.Log("Drive Sim appelle " + url);
+            Debug.Log("MultiRide appelle " + url);
 
             using var request = new UnityWebRequest(url, method);
             if (!string.IsNullOrEmpty(json))

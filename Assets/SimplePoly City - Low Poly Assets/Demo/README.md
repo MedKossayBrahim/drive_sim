@@ -111,14 +111,14 @@ Assets visuels ville : pack **SimplePoly City - Low Poly Assets** (bâtiments, r
 
 ## Où trouver les composants
 
-| Question | Réponse |
+| Élément | Emplacement |
 |---|---|
-| Rigidbody voiture ? | Sur le véhicule avec `GyroCarController` |
-| Gyroscope ? | `GyroCarController` → `AttitudeSensor` + `EnableDevice` |
-| Pédales ? | GameObject runtime `DriveControls` (`DriveControlsUI`) |
-| GPS ? | Composant `GPSWorldTracker` (si présent / auto-bootstrappé) |
-| Qui calcule la distance ? | `CarRide.Update` (delta de position) |
-| Qui renvoie au hub ? | `CarRide.Finish` → `TransportSession.FinishFromCar` |
+| Rigidbody voiture | GO avec `GyroCarController` |
+| Gyroscope | `GyroCarController` → `AttitudeSensor` |
+| Pédales | GO runtime `DriveControls` |
+| GPS | `GPSWorldTracker` |
+| Distance | `CarRide.Update` |
+| Retour hub | `CarRide.Finish` → `FinishFromCar` |
 
 ---
 
@@ -129,3 +129,52 @@ Assets visuels ville : pack **SimplePoly City - Low Poly Assets** (bâtiments, r
 | `BODY_SENSORS` (Android) | Gyroscope / attitude |
 | Localisation Fine/Coarse | GPS voiture |
 | iOS `NSLocationWhenInUseUsageDescription` | Ajoutée par `IosAuthBuild` |
+
+---
+
+## Questions possibles & réponses (validation)
+
+**Q1. Comment la voiture est lancée depuis le hub ?**  
+**R :** Véhicule ID **4** → `TransportSession.LaunchCar()` charge la scène SimplePoly en additif et crée `CarRide` si besoin.
+
+**Q2. Quel capteur pour braquer ?**  
+**R :** **`AttitudeSensor`** (Input System) dans `GyroCarController` : le roll du téléphone devient l’angle de direction. Activation via `InputSystem.EnableDevice`.
+
+**Q3. Différence gyro voiture vs accel bateau ?**  
+**R :** Voiture = `AttitudeSensor` (orientation complète, nouveau Input System). Bateau = `Input.acceleration.x` (accéléromètre Legacy, un seul axe).
+
+**Q4. Y a-t-il des WheelColliders ?**  
+**R :** Non. Conduite arcade : `AddForce` pour avancer, `MoveRotation` pour tourner, contraintes X/Z gelées.
+
+**Q5. À quoi servent les pédales UI ?**  
+**R :** `DriveControlsUI` fournit accélérateur / frein + levier **R / N / D**. Sans elles (éditeur), W/S et 1/2/3 clavier marchent aussi.
+
+**Q6. Comment le GPS est utilisé ?**  
+**R :** `GPSWorldTracker` appelle `Input.location.Start`, lit `lastData` (lat/lon), et peut déplacer une cible monde. Sur Android : permission Fine/Coarse Location.
+
+**Q7. Le GPS est-il obligatoire pour jouer ?**  
+**R :** Non. La course marche avec gyro + pédales. Le GPS est une couche optionnelle (tracking / affichage position).
+
+**Q8. Pourquoi `BODY_SENSORS` sur Android ?**  
+**R :** Permission demandée par `AndroidPermissionRequester` pour accéder correctement aux capteurs de mouvement (gyro/attitude) sur certains appareils.
+
+**Q9. Comment la distance / le score sont calculés ?**  
+**R :** `CarRide` intègre le déplacement du véhicule chaque frame. Coins hub ≈ `Distance / 40`. Meilleur score : `PlayerPrefs` + cloud `BestCar`.
+
+**Q10. Comment obtenir 3 étoiles ?**  
+**R :** Parcourir au moins **1000 m** (`FinishCarRoutine`). 1★ dès 200 m (ou `won`), 2★ dès 500 m.
+
+**Q11. Qui renvoie au hub ?**  
+**R :** Bouton TERMINER ou Escape → `CarRide.Finish` → `TransportSession.FinishFromCar(won || Distance >= 200)`.
+
+**Q12. Qui suit la voiture à la caméra ?**  
+**R :** `CameraFollow` (SmoothDamp, offset ~`(0,5,-10)`, anti-obstacle).
+
+**Q13. Pourquoi `compensateForScreenOrientation = false` ?**  
+**R :** Pour que le roll du téléphone reste stable en mode paysage ; sinon Unity réoriente les axes et le steer devient incohérent.
+
+**Q14. Où est le texte arabe du HUD GPS ?**  
+**R :** `ArabicTextSupport` : shaping + bidi pour afficher correctement les labels arabes.
+
+**Q15. La scène ville vient d’où ?**  
+**R :** Pack asset **SimplePoly City - Low Poly Assets** ; la logique Drive Sim (gyro, hub, GPS) est dans `Assets/Scripts/`.

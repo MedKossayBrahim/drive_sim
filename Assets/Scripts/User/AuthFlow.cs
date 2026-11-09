@@ -66,11 +66,25 @@ namespace DriveSim.User
             _ui.SimFailButton.onClick.AddListener(() => EnqueueNative("load:cancel"));
             _ui.EnableYesButton.onClick.AddListener(EnableYes);
             _ui.EnableNoButton.onClick.AddListener(() =>
-                FinishEnable(false, "Mot de passe conservé. Vous pourrez activer le visage plus tard."));
+                FinishEnable(false, "Session gardée. Vous pourrez activer le visage plus tard."));
             _ui.LogoutButton.onClick.AddListener(() => { _ = Logout(); });
             _ui.Password.onSubmit.AddListener(text => { _ = Submit(); });
 
-            ShowCredentials(DeviceAuth.HasSavedToken());
+            // Pas d'écran login si une session précédente existe : Boot reconnecte tout seul.
+            if (DeviceAuth.HasSessionToken())
+            {
+                _ui.SetChrome(true);
+                SetForm(false);
+                _ui.BiometricButton.gameObject.SetActive(false);
+                _ui.SimPanel.SetActive(false);
+                _ui.EnablePanel.SetActive(false);
+                _ui.HomePanel.SetActive(false);
+                SetStatus("Reconnexion automatique...");
+            }
+            else
+            {
+                ShowCredentials(DeviceAuth.HasSavedToken());
+            }
         }
 
         void OnDestroy()
@@ -119,6 +133,15 @@ namespace DriveSim.User
             if (!online)
             {
                 SetStatus("Le serveur ne répond pas. Ouvrez le Terminal, allez dans le dossier Backend, puis lancez npm start.", true);
+                return;
+            }
+
+            // Session locale : reconnecte sans e-mail / mot de passe / Face ID.
+            if (DeviceAuth.HasSessionToken())
+            {
+                SetBusy(true);
+                SetStatus("Reconnexion automatique...");
+                await FinishBiometricLogin(DeviceAuth.LoadSessionToken());
                 return;
             }
 
@@ -197,6 +220,7 @@ namespace DriveSim.User
                 }
 
                 _refresh = result.RefreshToken;
+                DeviceAuth.SaveSessionToken(_refresh);
                 _ui.Password.text = "";
                 AuthSession.Open(profile.Player, result.AccessToken);
                 if (DeviceAuth.IsBiometricAvailable()
@@ -300,7 +324,10 @@ namespace DriveSim.User
                 if (!refreshed.Ok)
                 {
                     if (refreshed.Unauthorized)
+                    {
+                        DeviceAuth.ClearSessionToken();
                         DeviceAuth.ClearToken();
+                    }
                     ShowCredentials(DeviceAuth.HasSavedToken());
                     SetStatus(refreshed.Error, true);
                     return;
@@ -315,8 +342,11 @@ namespace DriveSim.User
                 }
 
                 _refresh = refreshed.RefreshToken;
+                DeviceAuth.SaveSessionToken(_refresh);
                 AuthSession.Open(profile.Player, refreshed.AccessToken);
-                ShowHome("Biométrie acceptée par le téléphone, compte accepté par le serveur.");
+                ShowHome(DeviceAuth.HasSavedToken()
+                    ? "Biométrie acceptée par le téléphone, compte accepté par le serveur."
+                    : "Session restaurée. Bienvenue.");
             }
             catch (Exception exception)
             {
@@ -332,12 +362,11 @@ namespace DriveSim.User
         async System.Threading.Tasks.Task Logout()
         {
             if (_busy) return;
-            var keepFace = DeviceAuth.HasSavedToken();
             SetBusy(true);
             try
             {
                 var url = CurrentUrl();
-                if (!keepFace && url != null && !string.IsNullOrEmpty(_refresh))
+                if (url != null && !string.IsNullOrEmpty(_refresh))
                     await AuthApiClient.Logout(url, _refresh);
             }
             catch (Exception exception)
@@ -347,16 +376,14 @@ namespace DriveSim.User
             finally
             {
                 _refresh = null;
-                if (!keepFace)
-                    DeviceAuth.ClearToken();
+                DeviceAuth.ClearSessionToken();
+                DeviceAuth.ClearToken();
                 AuthSession.Close();
                 _registerMode = false;
                 _passwordOpen = false;
                 SetBusy(false);
-                ShowCredentials(DeviceAuth.HasSavedToken());
-                SetStatus(keepFace
-                    ? "Déconnecté. Le bouton vert rouvre le compte avec Face ID."
-                    : "Vous êtes déconnecté de cet appareil.");
+                ShowCredentials(false);
+                SetStatus("Vous êtes déconnecté de cet appareil.");
             }
         }
 

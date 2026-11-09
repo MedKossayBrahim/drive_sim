@@ -42,6 +42,8 @@ public sealed class CarRide : MonoBehaviour
             var host = new GameObject("DriveControls");
             host.AddComponent<DriveControlsUI>();
         }
+
+        GPSWorldTracker.EnsureForCarRide();
     }
 
     void Update()

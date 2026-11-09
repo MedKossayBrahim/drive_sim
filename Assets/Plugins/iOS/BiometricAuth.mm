@@ -47,7 +47,7 @@ static NSString *MessageForFace(NSError *error)
         case LAErrorBiometryNotEnrolled:
             return @"Aucun visage enregistré. Ajoutez Face ID dans Réglages > Face ID et code.";
         case LAErrorBiometryNotAvailable:
-            return @"Face ID n'est pas autorisé. Ouvrez Réglages > Face ID et code, puis Drive Sim.";
+            return @"Face ID n'est pas autorisé. Ouvrez Réglages > Face ID et code, puis MultiRide.";
         case LAErrorBiometryLockout:
             return @"Face ID est bloqué. Déverrouillez l'iPhone avec le code, puis réessayez.";
         case LAErrorPasscodeNotSet:
@@ -212,7 +212,7 @@ extern "C" void Biometric_SaveToken(const char *token)
     }
 
     NSString *value = [NSString stringWithUTF8String:token];
-    AskFace(@"Confirmez votre visage pour activer Drive Sim", 0, ^(LAContext *context, NSString *problem) {
+    AskFace(@"Confirmez votre visage pour activer MultiRide", 0, ^(LAContext *context, NSString *problem) {
         if (problem != nil)
         {
             if ([problem isEqualToString:@"cancel"])
@@ -237,7 +237,7 @@ extern "C" void Biometric_LoadToken(const char *reason)
 {
     NSString *why = reason != NULL && reason[0] != '\0'
         ? [NSString stringWithUTF8String:reason]
-        : @"Déverrouillez Drive Sim avec Face ID";
+        : @"Déverrouillez MultiRide avec Face ID";
     AskFace(why, 0, ^(LAContext *context, NSString *problem) {
         if (problem != nil)
         {

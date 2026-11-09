@@ -128,15 +128,15 @@ Pièces hub synthétiques : `étoiles * 10 + (boîte ? 25 : 0)`.
 
 ## Où trouver les composants
 
-| Question | Réponse |
+| Élément | Emplacement |
 |---|---|
-| Rigidbody sous-marin ? | Sur le GO `Submarine` avec `SubmarineController` |
-| Micro ? | `MicrophoneSensor` (souvent ajouté au boot) |
-| Boussole ? | `CompassSensor` → `Input.compass` |
-| Boîte noire ? | `BlackBoxObjective` / objet BlackBox spawné |
-| Qui décide Won ? | `GameManager` (extraction + remontée ≤ `surfaceDepth`) |
-| Qui renvoie au hub ? | `GameManager` Menu/Escape → `TransportSession.FinishFromSubmarine` |
-| Qui construit le monde ? | `SubmarineBoot.BuildWorld()` si le contrôleur est absent |
+| Rigidbody | GO `Submarine` + `SubmarineController` |
+| Micro | `MicrophoneSensor` |
+| Boussole | `CompassSensor` → `Input.compass` |
+| Boîte noire | `BlackBoxObjective` |
+| Win / Lose | `GameManager` |
+| Monde runtime | `SubmarineBoot.BuildWorld()` |
+| Retour hub | Menu/Escape → `FinishFromSubmarine` |
 
 ---
 
@@ -147,3 +147,52 @@ Pièces hub synthétiques : `étoiles * 10 + (boîte ? 25 : 0)`.
 | Microphone (`NSMicrophoneUsageDescription`) | Bruit ambiant / sonar |
 | Boussole | Cap HUD (souvent sans permission runtime) |
 | Réseau | `POST /scores` si connecté |
+
+---
+
+## Questions possibles & réponses (validation)
+
+**Q1. Comment le sous-marin est lancé depuis le hub ?**  
+**R :** Véhicule ID **5** → `TransportSession.LaunchSubmarine()` charge `SubmarineScene`. `SubmarineBoot` démarre / construit le monde puis `GameManager.StartGame`.
+
+**Q2. Pourquoi `useGravity = false` sur le Rigidbody ?**  
+**R :** Sous l’eau, la gravité Unity standard ne suffit pas. On simule **gravité + flottabilité + ballast** avec des `AddForce` manuels dans `SubmarineController`.
+
+**Q3. Comment fonctionne le ballast ?**  
+**R :** Une force verticale additionnelle fait descendre / remonter le sous-marin, en plus de la flottabilité (~0.95 × poids).
+
+**Q4. Quel est l’objectif de la mission ?**  
+**R :** Descendre, trouver la **boîte noire**, rester ~30 s dans le rayon pour l’extraire, puis remonter au-dessus de `surfaceDepth` (50 m) → état `Won`.
+
+**Q5. Comment perd-on ?**  
+**R :** Coque (`HullSystem`), oxygène (`OxygenSystem`) ou batterie (`BatterySystem`) à zéro → `Lost`.
+
+**Q6. À quoi sert le microphone ?**  
+**R :** `MicrophoneSensor` capte le bruit ambiant réel (`Microphone.Start` @ 44100 Hz). Ce niveau nourrit le **sonar passif** : plus de bruit / silence influence la détection.
+
+**Q7. À quoi sert la boussole ?**  
+**R :** `CompassSensor` active `Input.compass` et lit `trueHeading` pour afficher le cap au HUD.
+
+**Q8. Comment le sonar détecte les objets ?**  
+**R :** `SonarSystem` fait des `Physics.OverlapSphere` (passif / ping actif) et combine distance + bruit moteur + micro.
+
+**Q9. La victoire renvoie-t-elle automatiquement au hub ?**  
+**R :** Non. Après `Won`/`Lost`, le joueur quitte via **Menu** ou Escape → `FinishFromSubmarine(_state == Won)`.
+
+**Q10. Comment sont calculées les étoiles ?**  
+**R :** 1★ si victoire ou boîte ; 2★ si profondeur ≥ 500 ou score ≥ 3000 ; 3★ si (victoire et boîte) ou score ≥ 7000.
+
+**Q11. Le score part-il sur le serveur ?**  
+**R :** Oui, possible via `POST /scores` dans `GameManager.SubmitScore` (profondeur, temps, score), en plus de la sync progression hub.
+
+**Q12. Qui construit le monde 3D ?**  
+**R :** Souvent `SubmarineBoot.BuildWorld()` au runtime (sous-marin, black box, océan, créatures) s’il n’y a pas déjà un `SubmarineController`.
+
+**Q13. Que fait `LeviathanAI` ?**  
+**R :** Créature hostile avec Rigidbody (sans gravité). Collision → dégâts de coque.
+
+**Q14. Où est le Rigidbody du joueur ?**  
+**R :** Sur le GameObject sous-marin, exigé par `[RequireComponent(typeof(Rigidbody))]` de `SubmarineController`.
+
+**Q15. Quelles permissions montrer au prof ?**  
+**R :** Micro (phrase iOS dans `IosAuthBuild`), éventuellement réseau pour les scores. La boussole n’a en général pas de pop-up.

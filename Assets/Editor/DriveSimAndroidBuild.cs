@@ -13,11 +13,12 @@ namespace DriveSim.Editor
     // Build APK complet (toutes les scènes du Build Settings) pour la validation.
     public static class DriveSimAndroidBuild
     {
-        public static string OutputPath => Path.GetFullPath("Builds/Android/drive_sim.apk");
+        public static string OutputPath => Path.GetFullPath("Builds/Android/MultiRide.apk");
 
-        [MenuItem("Drive Sim/Build Android APK", false, 100)]
+        [MenuItem("MultiRide/Build Android APK", false, 100)]
         public static void BuildFromMenu()
         {
+            MultiRideBranding.Apply();
             var code = BuildApk(false);
             if (code != 0)
                 throw new InvalidOperationException("Échec du build Android. Voir Builds/Android/build-report.txt");
@@ -26,6 +27,7 @@ namespace DriveSim.Editor
         // Unity -batchmode -executeMethod DriveSim.Editor.DriveSimAndroidBuild.BuildFromCommandLine
         public static void BuildFromCommandLine()
         {
+            MultiRideBranding.Apply();
             EditorApplication.Exit(BuildApk(true));
         }
 
@@ -66,14 +68,14 @@ namespace DriveSim.Editor
                     options = BuildOptions.CompressWithLz4
                 };
 
-                Debug.Log("[Drive Sim] Build Android → " + OutputPath);
+                Debug.Log("[MultiRide] Build Android → " + OutputPath);
                 var report = BuildPipeline.BuildPlayer(options);
                 WriteReport(report, scenes);
 
                 if (report.summary.result != BuildResult.Succeeded || !File.Exists(OutputPath))
                     throw new InvalidOperationException("Build échoué : " + report.summary.result);
 
-                Debug.Log("[Drive Sim] APK prêt : " + OutputPath + " (" + new FileInfo(OutputPath).Length + " octets)");
+                Debug.Log("[MultiRide] APK prêt : " + OutputPath + " (" + new FileInfo(OutputPath).Length + " octets)");
                 return 0;
             }
             catch (Exception e)
@@ -97,7 +99,7 @@ namespace DriveSim.Editor
         static void WriteReport(BuildReport report, string[] scenes)
         {
             var text = new StringBuilder();
-            text.AppendLine("Drive Sim — APK Android");
+            text.AppendLine("MultiRide — APK Android");
             text.AppendLine("Résultat : " + report.summary.result);
             text.AppendLine("APK : " + OutputPath);
             text.AppendLine("Durée : " + report.summary.totalTime);

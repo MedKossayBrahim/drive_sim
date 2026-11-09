@@ -301,12 +301,23 @@ public class GPSWorldTracker : MonoBehaviour
     }
 
     /// <summary>
-    /// Creates the tracker automatically on Play when nothing is wired in the
-    /// scene, so the on-screen location display always works. Remove this method
-    /// if you prefer to place the component manually in the Inspector.
+    /// Crée le tracker seulement s'il y a déjà une voiture dans la scène.
+    /// Sinon la carte GPS n'apparaît pas sur le login / hub (voir CarRide).
     /// </summary>
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void EnsureInstanceExists()
+    {
+        if (FindAnyObjectByType<GPSWorldTracker>() != null)
+            return;
+        if (FindAnyObjectByType<GyroCarController>() == null)
+            return;
+
+        GameObject host = new GameObject("GPSWorldTracker (auto)");
+        host.AddComponent<GPSWorldTracker>();
+    }
+
+    /// <summary>Appelé par CarRide au démarrage de la course voiture.</summary>
+    public static void EnsureForCarRide()
     {
         if (FindAnyObjectByType<GPSWorldTracker>() != null)
             return;
@@ -1044,6 +1055,10 @@ public class GPSWorldTracker : MonoBehaviour
     private void OnGUI()
     {
         if (!showScreenOverlay)
+            return;
+
+        // Pas de carte GPS hors course voiture (login, hub, autres véhicules).
+        if (FindAnyObjectByType<GyroCarController>() == null && FindAnyObjectByType<CarRide>() == null)
             return;
 
         EnsureHudResources();

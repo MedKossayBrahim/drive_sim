@@ -400,7 +400,7 @@ namespace DriveSim.Menu
             var hello = UiKit.Image("Hello", _homeRoot, UiKit.Panel, UiKit.Round(18), true, Image.Type.Sliced);
             _helloPanel = hello.rectTransform;
             var layout = hello.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(36, 36, 32, 28);
+            layout.padding = new RectOffset(36, 36, 24, 28);
             layout.spacing = 8f;
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
@@ -408,7 +408,10 @@ namespace DriveSim.Menu
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            var kicker = UiKit.Label(hello.transform, "BONJOUR", 20, UiKit.Cyan, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var brand = UiKit.Image("BrandLogo", hello.transform, Color.white, UiKit.AppLogo(), false);
+            brand.preserveAspect = true;
+            UiKit.Prefer(brand, 0f, 96f);
+            var kicker = UiKit.Label(hello.transform, "MULTIRIDE", 20, UiKit.Cyan, FontStyle.Bold, TextAnchor.MiddleLeft);
             UiKit.Prefer(kicker, 0f, 28f);
             _helloName = UiKit.Label(hello.transform, "Pilote", 48, Color.white, FontStyle.Bold, TextAnchor.MiddleLeft);
             UiKit.Prefer(_helloName, 0f, 64f);
@@ -1704,7 +1707,7 @@ namespace DriveSim.Menu
                 case Page.Settings: return "RÉGLAGES";
                 case Page.Board: return "CLASSEMENT";
                 case Page.Success: return "SUCCÈS";
-                default: return "DRIVE SIM";
+                default: return "MULTIRIDE";
             }
         }
 

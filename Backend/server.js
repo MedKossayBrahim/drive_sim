@@ -1,4 +1,4 @@
-// Petit serveur de comptes pour Drive Sim.
+// Petit serveur de comptes pour MultiRide.
 // Le téléphone vérifie le visage. Ce serveur vérifie l'e-mail, le mot de passe et les jetons.
 // Il ne reçoit jamais de photo ni de modèle biométrique.
 
@@ -360,7 +360,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     console.log("Sur le Mac : Réglages Système > Réseau, et note l'adresse IP.");
   }
   console.log("");
-  console.log("Serveur Drive Sim prêt.");
+  console.log("Serveur MultiRide prêt.");
   console.log(`  Sur cet ordinateur : http://localhost:${PORT}`);
   if (ips.length === 0) {
     console.log("  Aucune adresse Wi-Fi affichée. Branche l'ordinateur au Wi-Fi, puis relance npm start.");

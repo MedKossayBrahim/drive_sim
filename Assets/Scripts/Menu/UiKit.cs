@@ -139,8 +139,27 @@ namespace DriveSim.Menu
         public static Sprite ModeArt(int mode) => SpriteOf("mode" + mode, () => PaintModeArt(mode));
         public static Sprite LevelCar() => SpriteOf("levelcar", () => LoadVehicleArt(3));
         public static Sprite Icon(string name) => SpriteOf("icon" + name, () => PaintIcon(name));
+        public static Sprite AppLogo() => SpriteOf("multiridelogo", LoadAppLogo);
 
         static readonly string[] VehicleResourceNames = { "plane", "boat", "bike", "car", "submarine" };
+
+        static Sprite LoadAppLogo()
+        {
+            const string path = "Menu/MultiRideLogo";
+            var sprite = Resources.Load<Sprite>(path);
+            if (sprite != null)
+                return sprite;
+            var texture = Resources.Load<Texture2D>(path);
+            if (texture != null)
+            {
+                return Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+            return PaintPixel();
+        }
 
         static Sprite SpriteOf(string key, System.Func<Sprite> paint)
         {

@@ -10,6 +10,7 @@ namespace DriveSim.User
         CanvasScaler _scaler;
         Image _night;
         Image _road;
+        RectTransform _logoRoot;
         RectTransform _header;
         Text _heading;
         RectTransform _blurbRoot;
@@ -57,6 +58,7 @@ namespace DriveSim.User
             _road = UiKit.Image("Road", transform, Color.white, UiKit.Backdrop(), false);
             UiKit.Stretch(_road.rectTransform, 0f, 0f, 0f, 0f);
 
+            _logoRoot = CreateLogo();
             _header = CreateHeader();
             _blurbRoot = CreateBlurb();
 
@@ -111,6 +113,8 @@ namespace DriveSim.User
                 _night.gameObject.SetActive(visible);
             if (_road != null)
                 _road.gameObject.SetActive(visible);
+            if (_logoRoot != null)
+                _logoRoot.gameObject.SetActive(visible);
             if (_header != null)
                 _header.gameObject.SetActive(visible);
             if (_blurbRoot != null)
@@ -126,20 +130,33 @@ namespace DriveSim.User
 
             if (landscape)
             {
-                SetAnchors(_header, new Vector2(0.28f, 0.86f), new Vector2(0.72f, 0.97f));
-                SetAnchors(_blurbRoot, new Vector2(0.14f, 0.76f), new Vector2(0.86f, 0.85f));
-                SetAnchors(_card, new Vector2(0.22f, 0.06f), new Vector2(0.78f, 0.75f));
-                _heading.fontSize = 28;
-                _blurb.fontSize = 22;
+                SetAnchors(_logoRoot, new Vector2(0.38f, 0.78f), new Vector2(0.62f, 0.98f));
+                SetAnchors(_header, new Vector2(0.28f, 0.70f), new Vector2(0.72f, 0.78f));
+                SetAnchors(_blurbRoot, new Vector2(0.14f, 0.62f), new Vector2(0.86f, 0.70f));
+                SetAnchors(_card, new Vector2(0.22f, 0.04f), new Vector2(0.78f, 0.61f));
+                _heading.fontSize = 26;
+                _blurb.fontSize = 20;
                 return new Vector2(0.5f, 0.5f);
             }
 
-            SetAnchors(_header, new Vector2(0.08f, 0.90f), new Vector2(0.92f, 0.97f));
-            SetAnchors(_blurbRoot, new Vector2(0.06f, 0.82f), new Vector2(0.94f, 0.89f));
-            SetAnchors(_card, new Vector2(0.05f, 0.04f), new Vector2(0.95f, 0.81f));
-            _heading.fontSize = 32;
-            _blurb.fontSize = 22;
+            SetAnchors(_logoRoot, new Vector2(0.22f, 0.80f), new Vector2(0.78f, 0.97f));
+            SetAnchors(_header, new Vector2(0.08f, 0.73f), new Vector2(0.92f, 0.80f));
+            SetAnchors(_blurbRoot, new Vector2(0.06f, 0.66f), new Vector2(0.94f, 0.73f));
+            SetAnchors(_card, new Vector2(0.05f, 0.03f), new Vector2(0.95f, 0.65f));
+            _heading.fontSize = 28;
+            _blurb.fontSize = 20;
             return new Vector2(0.5f, 0.5f);
+        }
+
+        RectTransform CreateLogo()
+        {
+            var root = UiKit.Rect("Logo", transform);
+            var frame = UiKit.Image("LogoFrame", root, new Color(0.02f, 0.06f, 0.1f, 0.55f), UiKit.Round(22), true, Image.Type.Sliced);
+            UiKit.Stretch(frame.rectTransform, 0f, 0f, 0f, 0f);
+            var logo = UiKit.Image("LogoArt", root, Color.white, UiKit.AppLogo(), false);
+            logo.preserveAspect = true;
+            UiKit.Stretch(logo.rectTransform, 10f, 10f, 10f, 10f);
+            return root;
         }
 
         RectTransform CreateHeader()

@@ -106,15 +106,15 @@ Score / pièces lus depuis `ScoreManager`.
 
 ---
 
-## Où trouver les composants (validation)
+## Où trouver les composants
 
-| Question | Réponse |
+| Élément | Emplacement |
 |---|---|
-| Rigidbody de l’avion ? | Sur le GameObject avion (même objet que `PlaneController`) |
-| Capteurs téléphone ? | `PlaneInput` → méthodes `FindSensor` / lecture Attitude/Gravity/Accelerometer |
-| Qui décide Win/Fail ? | `LandingMission` (+ `PlaneHealth` pour crash) |
-| Qui renvoie au hub ? | `PlaneMenu.Quit` → `TransportSession.FinishFromPlane` |
-| Qui charge la scène ? | `TransportSession.LaunchPlane` depuis le hub |
+| Rigidbody avion | Même GameObject que `PlaneController` |
+| Capteurs téléphone | `PlaneInput.FindSensor` |
+| Win / Fail | `LandingMission` (+ `PlaneHealth` crash) |
+| Retour hub | `PlaneMenu.Quit` → `FinishFromPlane` |
+| Chargement scène | `TransportSession.LaunchPlane` |
 
 ---
 
@@ -122,3 +122,52 @@ Score / pièces lus depuis `ScoreManager`.
 
 Accéléromètre / attitude : en général **sans** permission runtime.  
 Vibration Android possible (haptics crash).
+
+---
+
+## Questions possibles & réponses (validation)
+
+**Q1. Comment l’avion est-il lancé depuis le hub ?**  
+**R :** Véhicule ID **1** → `TransportSession.LaunchPlane()` charge `Plane_Scene` en additif, puis `BindMission()` sur `LandingMission` / `ScoreManager`.
+
+**Q2. Quelle physique utilise l’avion ?**  
+**R :** Un **Rigidbody dynamique** avec gravité. Pas de WheelCollider. Forces : `AddForce(thrust + lift + drag)` + `AddRelativeTorque` pour tourner.
+
+**Q3. Quels capteurs téléphone pour piloter ?**  
+**R :** Dans `PlaneInput` : d’abord `AttitudeSensor`, sinon `GravitySensor`, sinon `Accelerometer`. Il faut `InputSystem.EnableDevice(...)` sinon les valeurs restent à 0.
+
+**Q4. Différence entre `PlaneInput` et `PlaneSensors` ?**  
+**R :** `PlaneInput` = vrais capteurs téléphone / stick. `PlaneSensors` = instruments **simulés** (raycasts AGL, G, fuel) — pas le gyro du téléphone.
+
+**Q5. Comment gagne-t-on la mission ?**  
+**R :** Collecter / passer les objectifs puis atterrir correctement dans `LandingZone` → `LandingMission.CompleteLanding()` → état `Won`.
+
+**Q6. Comment perd-on ?**  
+**R :** Crash via `PlaneHealth.OnCrashed` → état `Failed`.
+
+**Q7. Qui renvoie le résultat au hub ?**  
+**R :** `PlaneMenu.Quit` (ou fin) → `TransportSession.FinishFromPlane(won)` → formule d’étoiles → `GameHub.ReportResult`.
+
+**Q8. Comment sont calculées les étoiles ?**  
+**R :** 1★ si atterrissage réussi ; 2★ si ≥ 25 pièces ; 3★ si ≥ 40 pièces (`FinishPlaneRoutine`).
+
+**Q9. Où est le joystick tactile ?**  
+**R :** Script `VirtualJoystick` + `ThrottleSlider` pour les gaz. Branchés dans `PlaneInput` en mode Touch.
+
+**Q10. Que fait `ContinuousDynamic` sur le Rigidbody ?**  
+**R :** Détection de collision continue : limite le tunnelage à haute vitesse (avion rapide vs sol / montagnes).
+
+**Q11. Pourquoi le Rigidbody devient kinematic à la fin ?**  
+**R :** Pour figer l’avion sur l’écran de victoire/défaite, sans continuer à simuler les forces.
+
+**Q12. Qui gère la caméra ?**  
+**R :** `PlaneCameraRig` (Chase / Cockpit / Orbit), switchable via l’action CameraSwitch.
+
+**Q13. Comment relancer sans revenir au hub ?**  
+**R :** `TransportSession.RestartPlane()` décharge puis recharge `Plane_Scene`.
+
+**Q14. Quels layers physiques sont utilisés ?**  
+**R :** Plane, Ground, Checkpoint, Cargo — configurés dans `TransportSession.ConfigurePhysicsLayers`.
+
+**Q15. En éditeur sans téléphone, comment piloter ?**  
+**R :** Clavier / manette via la map Input System `"Plane"`, ou stick/souris selon le mode.

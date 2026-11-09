@@ -4,9 +4,35 @@ using UnityEngine.Scripting;
 namespace DriveSim.User
 {
     // Pont vers Face ID (iPhone), la biométrie Android, ou une simulation dans l'éditeur.
+    // SessionToken = rester connecté sans redemander e-mail / mot de passe.
     public static class DeviceAuth
     {
         const string TokenKey = "drive_sim_refresh_token";
+        const string SessionKey = "drive_sim_session_refresh";
+
+        public static bool HasSessionToken()
+        {
+            return !string.IsNullOrEmpty(PlayerPrefs.GetString(SessionKey, ""));
+        }
+
+        public static string LoadSessionToken()
+        {
+            return PlayerPrefs.GetString(SessionKey, "");
+        }
+
+        public static void SaveSessionToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return;
+            PlayerPrefs.SetString(SessionKey, token);
+            PlayerPrefs.Save();
+        }
+
+        public static void ClearSessionToken()
+        {
+            PlayerPrefs.DeleteKey(SessionKey);
+            PlayerPrefs.Save();
+        }
 
         public static bool IsBiometricAvailable()
         {
@@ -73,7 +99,7 @@ namespace DriveSim.User
         public static void LoadToken()
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            Biometric_LoadToken("Déverrouillez Drive Sim avec Face ID");
+            Biometric_LoadToken("Déverrouillez MultiRide avec Face ID");
 #elif UNITY_ANDROID && !UNITY_EDITOR
             using (var plugin = new AndroidJavaClass("com.drivesim.auth.BiometricPlugin"))
             using (var activity = CurrentActivity())
